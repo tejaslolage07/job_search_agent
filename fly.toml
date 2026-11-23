@@ -1,31 +1,35 @@
-app = "job-search-agent-tejaslolage"   # must be globally unique; `fly launch --no-deploy` can rename it
-primary_region = "bom"               # Mumbai; use "iad" for the cheapest rates
+# fly.toml app configuration file generated for job-search-agent-tejaslolage on 2026-11-23T20:02:44+05:30
+#
+# See https://docs.fly.io/reference/configuration for information about how to use this file.
+#
+
+app = 'job-search-agent-tejaslolage'
+primary_region = 'sin'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  JOB_SEARCH_AGENT_HOME = "/vol"
+  JOB_SEARCH_AGENT_HOME = '/vol'
 
-[mounts]
-  source = "vol"
-  destination = "/vol"
+[[mounts]]
+  source = 'vol'
+  destination = '/vol'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  # The scheduler and a running crawl live inside this process: never stop or scale it to zero.
-  auto_stop_machines = "off"
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
 
   [[http_service.checks]]
-    method = "GET"
-    path = "/healthz"
-    interval = "30s"
-    timeout = "5s"
-    grace_period = "20s"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '20s'
+    method = 'GET'
+    path = '/healthz'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "512mb"
+  size = 'shared-cpu-1x'
+  memory = '512mb'
