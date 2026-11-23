@@ -21,7 +21,7 @@ class LinkedInConfig(BaseModel):
     enabled: bool = False
     queries: list[LinkedInQuery] = []
     window: Literal["24hr", "past week", "past month"] = "24hr"
-    max_listings: int = Field(100, ge=1, le=1000)
+    max_listings: int = Field(100, ge=1, le=10000)
     workers: int = Field(2, ge=1, le=6)
 
     @field_validator("queries")

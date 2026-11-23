@@ -657,3 +657,13 @@ def test_variant_names_are_free_text_and_never_reach_the_file_path(home):
     assert c.delete("/api/resumes", params={"name": "../../evil"}).status_code == 200
     assert c.delete("/api/resumes", params={"name": "../../evil"}).status_code == 404
     assert len(c.get("/api/profile").json()["resumes"]) == 2
+
+
+def test_blank_preferred_locations_never_become_blank_search_locations(home):
+    c, _ = make_client(home)
+    c.put("/api/profile", json={**PROFILE_BODY, "locations": {**PROFILE_BODY["locations"], "preferred": ["", "  "]}})
+    assert c.get("/api/profile").json()["profile"]["locations"]["preferred"] == []
+    assert {q["location"] for q in c.get("/api/linkedin/defaults").json()["queries"]} == {"India"}
+    li = {"enabled": True, "max_listings": 10000, "queries": [{"keyword": "x", "location": "India"}]}
+    assert c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": {**li, "max_listings": 10001}}).status_code == 422
+    assert c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li}).status_code == 200

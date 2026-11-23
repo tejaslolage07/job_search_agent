@@ -31,6 +31,11 @@ class Locations(BaseModel):
     accept_onsite_outside_preferred: bool = True   # on unless the user turns it off
 
 
+    @field_validator("preferred")
+    @classmethod
+    def _no_blank_entries(cls, v: list[str]) -> list[str]:
+        return [x.strip() for x in v if isinstance(x, str) and x.strip()]   # a stray empty entry must not become a blank search location
+
 class Seniority(BaseModel):
     model_config = ConfigDict(extra="forbid")
     min_level: str

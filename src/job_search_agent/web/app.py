@@ -247,7 +247,7 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
         if not prof:
             return {"queries": []}
         locs: list[str] = []
-        for p in prof["locations"]["preferred"] or ["India"]:  # no preferred location: search India
+        for p in [x.strip() for x in prof["locations"]["preferred"] if x.strip()] or ["India"]:  # no preferred location: search India
             loc = re.sub(r"^remote[\s\-–:,/()]*", "", p, flags=re.I).strip() or "India" if p.lower().startswith("remote") else p
             if loc not in locs:
                 locs.append(loc)
