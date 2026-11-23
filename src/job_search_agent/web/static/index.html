@@ -90,6 +90,7 @@
   .cutmore{margin-top:6px}
   .daychart{display:flex;gap:6px;align-items:stretch;height:190px} .daycol{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px}
   .daytrack{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center} .daybar{width:100%;max-width:38px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,var(--accent2),var(--accent))}
+  .daycol.click{background:none;border:0;color:inherit;font:inherit;cursor:pointer;border-radius:10px;padding:2px 0;transition:.15s} .daycol.click:hover{background:var(--chip)} .daycol.click:hover .daybar{filter:brightness(1.2)}
   .daynum{font-size:.74rem;font-weight:600;height:1em} .daylbl{font-size:.68rem;color:var(--muted);white-space:nowrap}
   .cuthead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px} .cuthead h2{margin:0} .cuthead input{width:210px;height:36px;padding:6px 12px;border-radius:99px}
   @media (max-width:1000px){.cuts{grid-template-columns:1fr}}
@@ -480,8 +481,8 @@ async function viewRuns() {
 
 // ---------- JOBS ----------
 let jobsBucket = "accept", jobsOffset = 0;
-const jobFilters = JSON.parse(localStorage.getItem("jobFilters") || "null") || { q: "", company: "", source: "", since: "", state: "" };
-jobFilters.company = jobFilters.company || ""; delete jobFilters.min_score; // the score filter was removed: a saved value must not keep filtering jobs invisibly
+const jobFilters = JSON.parse(localStorage.getItem("jobFilters") || "null") || { q: "", company: "", source: "", since: "", state: "", day: "" };
+jobFilters.company = jobFilters.company || ""; jobFilters.day = jobFilters.day || ""; delete jobFilters.min_score; // the score filter was removed: a saved value must not keep filtering jobs invisibly
 if (/h$/.test(jobFilters.since || "")) jobFilters.since = "2d"; // filters saved before Posted became calendar days (e.g. "24h")
 async function viewJobs() {
   const main = $("#main");
@@ -490,7 +491,7 @@ async function viewJobs() {
   const phaseBar = h("div", { class: "row small", style: "gap:8px;margin:0 0 16px;align-items:center" });
   const f = jobFilters, tabsEl = h("div", { class: "tabs" }), list = h("div", { class: "card" }), notice = h("div", { class: "banner hidden" });
   const inp = (key, ph, type = "text") => h("input", { type, placeholder: ph, value: f[key], style: type === "number" ? "width:90px" : "", onchange: (e) => { f[key] = e.target.value; jobsOffset = 0; localStorage.setItem("jobFilters", JSON.stringify(f)); load(); } });
-  const selF = (key, opts) => h("select", { onchange: (e) => { f[key] = e.target.value; jobsOffset = 0; localStorage.setItem("jobFilters", JSON.stringify(f)); load(); } }, opts.map(([v, t]) => h("option", { value: v, selected: v === f[key] }, t)));
+  const selF = (key, opts) => h("select", { onchange: (e) => { f[key] = e.target.value; if (key === "since") f.day = ""; jobsOffset = 0; localStorage.setItem("jobFilters", JSON.stringify(f)); load(); } }, opts.map(([v, t]) => h("option", { value: v, selected: v === f[key] }, t)));
   main.replaceChildren(h("div", { class: "card" }, h("div", { class: "row" }, field("Search", inp("q", "title, company, location")),
     field("Source", selF("source", [["", "all"], ["ats", "company pages"], ["linkedin", "LinkedIn"]])), field("Posted (IST dates)", selF("since", [["", "any time"], ["today", "today"], ["2d", "yesterday & today"], ["3d", "last 3 days"], ["7d", "last 7 days"], ["30d", "last 30 days"]])),
     field("My list", selF("state", [["", "active"], ["saved", "saved"], ["applied", "applied"], ["hidden", "hidden"]])))), notice, tabsEl, phaseBar, list);
@@ -506,14 +507,15 @@ async function viewJobs() {
     phaseBar.replaceChildren(h("span", { class: "muted" }, "Decided by:"), ...PH.map(([k, t, n]) => h("button", { class: "btn sm" + (k === jobsPhase ? " primary" : ""), onclick: () => { jobsPhase = k; jobsOffset = 0; load(); } }, `${t} (${n})`)));
     // Filters are saved between visits: say so loudly, show how many jobs they hide, and offer one click to clear them.
     const SINCE = { today: "today", "2d": "yesterday & today", "3d": "last 3 days", "7d": "last 7 days", "30d": "last 30 days" }, SRC = { ats: "company pages", linkedin: "LinkedIn" };
-    const on = [f.company ? `company: ${f.company}` : null, f.q ? `search "${f.q}"` : null, f.source ? `source: ${SRC[f.source] || f.source}` : null, f.since ? `posted: ${SINCE[f.since] || f.since}` : null,
+    const dayTxt = f.day ? `${+f.day.slice(8)} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+f.day.slice(5, 7) - 1]}` : "";
+    const on = [f.day ? `posted on ${dayTxt}` : null, f.company ? `company: ${f.company}` : null, f.q ? `search "${f.q}"` : null, f.source ? `source: ${SRC[f.source] || f.source}` : null, f.since ? `posted: ${SINCE[f.since] || f.since}` : null,
       f.state ? `my list: ${f.state}` : null].filter(Boolean);
     if (!on.length) notice.classList.add("hidden");
     else {
       let all = null; try { const u = await api("/api/jobs?bucket=all&limit=1"); all = u.counts.accept + u.counts.review + u.counts.reject; } catch { /* the notice still helps without the total */ }
       const shown = d.counts.accept + d.counts.review + d.counts.reject;
       notice.replaceChildren(h("b", {}, "Filters are on: "), on.join(" · "), ` — showing ${shown}${all !== null ? ` of ${all}` : ""} jobs. `,
-        h("button", { class: "btn sm", onclick: () => { Object.assign(f, { q: "", company: "", source: "", since: "", state: "" }); localStorage.setItem("jobFilters", JSON.stringify(f)); jobsOffset = 0; viewJobs(); } }, "Clear filters"));
+        h("button", { class: "btn sm", onclick: () => { Object.assign(f, { q: "", company: "", source: "", since: "", state: "", day: "" }); localStorage.setItem("jobFilters", JSON.stringify(f)); jobsOffset = 0; viewJobs(); } }, "Clear filters"));
       notice.classList.remove("hidden");
     }
     if (!d.jobs.length) { list.replaceChildren(h("div", { class: "muted" }, d.counts.accept + d.counts.review + d.counts.reject === 0 ? "No scored jobs yet. Save your profile, then run discovery with matching on." : "Nothing here with these filters.")); return; }
@@ -536,7 +538,7 @@ async function viewJobs() {
 let dashBucket = "accept";
 function goJobs(o) {
   jobsBucket = o.bucket || "accept"; jobsOffset = 0;
-  Object.assign(jobFilters, { q: "", company: o.company || "", source: o.source || "", since: "", state: "" });
+  Object.assign(jobFilters, { q: "", company: o.company || "", source: o.source || "", since: "", state: "", day: o.day || "" });
   localStorage.setItem("jobFilters", JSON.stringify(jobFilters)); showTab("Jobs");
 }
 async function viewDashboard() {
@@ -573,8 +575,8 @@ async function viewDashboard() {
     cInput.oninput = (e) => { cutQ.company = e.target.value; drawCuts(); }; sInput.oninput = (e) => { cutQ.portal = e.target.value; drawCuts(); };
     drawCuts();
     const mx = Math.max(1, ...bk.days.map(([, n]) => n));
-    daysCard.replaceChildren(h("h2", {}, `${bname[0].toUpperCase() + bname.slice(1)} jobs by posted day`), h("div", { class: "small muted", style: "margin:-6px 0 12px" }, "Last 14 days (IST). Jobs with no posted date use the day they were first seen."),
-      h("div", { class: "daychart" }, bk.days.map(([day, n]) => h("div", { class: "daycol", title: `${day}: ${n}` }, h("div", { class: "daynum" }, n ? String(n) : ""), h("div", { class: "daytrack" }, h("div", { class: "daybar", style: `height:${Math.max(n ? 4 : 1, (100 * n) / mx)}%;${n ? "" : "opacity:.25"}` })), h("div", { class: "daylbl" }, `${+day.slice(8)} ${MON[+day.slice(5, 7) - 1]}`)))));
+    daysCard.replaceChildren(h("h2", {}, `${bname[0].toUpperCase() + bname.slice(1)} jobs by posted day`), h("div", { class: "small muted", style: "margin:-6px 0 12px" }, "Last 14 days (IST). Click a bar to see that day's jobs. Jobs with no posted date use the day they were first seen."),
+      h("div", { class: "daychart" }, bk.days.map(([day, n]) => h(n ? "button" : "div", { class: "daycol" + (n ? " click" : ""), title: n ? `${n} ${bname} jobs posted ${day}: click to see them` : `${day}: none`, onclick: n ? () => goJobs({ bucket: dashBucket, day }) : null }, h("div", { class: "daynum" }, n ? String(n) : ""), h("div", { class: "daytrack" }, h("div", { class: "daybar", style: `height:${Math.max(n ? 4 : 1, (100 * n) / mx)}%;${n ? "" : "opacity:.25"}` })), h("div", { class: "daylbl" }, `${+day.slice(8)} ${MON[+day.slice(5, 7) - 1]}`)))));
     if (!total) main.replaceChildren(h("div", { class: "card" }, h("h2", {}, "No scored jobs yet"), h("div", { class: "muted", style: "margin-bottom:12px" }, "Save your profile, then run discovery with matching turned on."), h("button", { class: "btn primary", onclick: () => showTab("Discover") }, "Go to Discover")));
   }
   load();

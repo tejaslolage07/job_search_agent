@@ -141,8 +141,10 @@ def _record(r: sqlite3.Row, now: datetime) -> dict[str, Any]:
 
 
 def list_jobs(conn: sqlite3.Connection, bucket: str = "accept", q: str = "", company: str = "", source: str = "",
-              since: str = "", min_score: float = 0, state: str = "", limit: int = 50, offset: int = 0, phase: str = "") -> dict[str, Any]:
+              since: str = "", min_score: float = 0, state: str = "", limit: int = 50, offset: int = 0, phase: str = "", day: str = "") -> dict[str, Any]:
     """`phase` (profile | resume) keeps only jobs the AI decided from the profile details / from the resume. `phases` counts both, before that filter."""
+    if day and not (len(day) == 10 and day[4] == day[7] == "-" and (day[:4] + day[5:7] + day[8:]).isdigit()):
+        raise ValueError("day must look like 2026-11-23")
     cutoff = report.calendar_cutoff(since) if since else None  # oldest included day, 'YYYY-MM-DD'; raises ValueError if malformed
     rows = conn.execute(JOB_SQL).fetchall()
     now = timeutil.now_ist()
@@ -158,6 +160,8 @@ def list_jobs(conn: sqlite3.Connection, bucket: str = "accept", q: str = "", com
         if source and r["source"] != source:
             continue
         if cutoff and (r["posted_at"] or r["first_seen_at"])[:10] < cutoff:
+            continue
+        if day and (r["posted_at"] or r["first_seen_at"])[:10] != day:  # one exact posted day (a bar on the Dashboard chart)
             continue
         if r["final_score"] < min_score:
             continue

@@ -261,6 +261,9 @@ def test_linkedin_stage_ingests_and_keeps_duplicates_separate(home):
     assert dict(cut["companies"])["Acme"] == len(acme) and sum(n for _, n in cut["sources"]) == len(jobs)
     assert {k for k, _ in cut["sources"]} == {"ats", "linkedin"}
     assert len(cut["days"]) == 14 and sum(n for _, n in cut["days"]) == len(jobs)  # the posted-day chart on the Dashboard
+    today = cut["days"][-1][0]
+    assert c.get(f"/api/jobs?bucket=all&day={today}").json()["total"] == cut["days"][-1][1]  # a bar on the chart opens exactly that day's jobs
+    assert c.get("/api/jobs?bucket=all&day=yesterday").status_code == 422
     only = c.get("/api/jobs?bucket=all&company=Acme").json()
     assert only["total"] == len(acme) and all(j["company"] == "Acme" for j in only["jobs"])  # clicking a company on the Dashboard opens its jobs
     assert st["linkedin"]["requests_today"] == 5

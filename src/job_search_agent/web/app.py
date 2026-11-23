@@ -421,14 +421,14 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
     # ---- jobs ------------------------------------------------------------------------------------------------
     @app.get("/api/jobs")
     def jobs(bucket: str = "accept", q: str = "", company: str = "", source: str = "", since: str = "", min_score: float = 0,
-             state: str = "", limit: int = 50, offset: int = 0, phase: str = "") -> dict[str, Any]:
+             state: str = "", limit: int = 50, offset: int = 0, phase: str = "", day: str = "") -> dict[str, Any]:
         if phase not in ("", "profile", "resume"):
             raise HTTPException(422, "phase must be profile or resume")
         if bucket not in ("accept", "review", "reject", "all"):
             raise HTTPException(422, "bucket must be accept, review, reject or all")
         conn = db()
         try:
-            return service.list_jobs(conn, bucket, q, company, source, since, min_score, state, min(limit, 200), offset, phase)
+            return service.list_jobs(conn, bucket, q, company, source, since, min_score, state, min(limit, 200), offset, phase, day)
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         finally:
