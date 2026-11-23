@@ -44,6 +44,13 @@
   .pill.run::before{background:var(--accent2);animation:pulse 1.2s infinite}
   @keyframes pulse{50%{opacity:.25}}
   main{min-height:60vh}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes shimmer{to{background-position:-200% 0}}
+  .rise{animation:rise .38s cubic-bezier(.2,.7,.2,1) both}
+  .skel{border-radius:10px;min-height:14px;background:linear-gradient(90deg,var(--chip) 25%,var(--card2) 50%,var(--chip) 75%);background-size:200% 100%;animation:shimmer 1.3s linear infinite}
+  .skelrow{display:flex;gap:12px;margin:10px 0}
+  .stat,.cut{transition:background .15s,border-color .15s,transform .15s}
+  @media (prefers-reduced-motion:reduce){.rise,.skel{animation:none}}
   .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:18px}
   h2{margin:.1em 0 .7em;font-size:1.08rem;font-weight:650;letter-spacing:-.01em} h3{margin:1.1em 0 .45em;font-size:.95rem}
   .muted{color:var(--muted)} .small{font-size:.84rem}
@@ -190,6 +197,9 @@ function setErrors(root, errors) {
   const friendly = (m) => (/valid number|should be a valid/i.test(m) ? "Enter a number" : /field required/i.test(m) ? "This field is required" : m);
   for (const err of errors || []) { const e = { ...err, message: friendly(err.message) }; const slot = root.querySelector(`[data-err="${e.field}"]`) || root.querySelector(`[data-err="${e.field.split(".")[0]}"]`); if (slot) slot.textContent = e.message; }
 }
+const skel = (n = 4, h0 = 38) => Array.from({ length: n }, () => h("div", { class: "skel", style: `height:${h0}px;margin:10px 0` }));
+// Content that appears in the page (or in the dashboard's stat/cut rows) fades up, one after another.
+new MutationObserver((ms) => { for (const m of ms) { const pr = m.target; if (!(pr.id === "main" || (pr.classList && (pr.classList.contains("stats") || pr.classList.contains("cuts"))))) continue; let i = 0; for (const n of m.addedNodes) if (n.nodeType === 1) { n.style.animationDelay = Math.min(i++, 6) * 45 + "ms"; n.classList.add("rise"); } } }).observe(document.getElementById("main"), { childList: true, subtree: true });
 function bar(done, total) { const pct = total ? Math.min(100, Math.round((100 * done) / total)) : 0; return h("div", { class: "bar-outer" }, h("div", { class: "bar-inner", style: `width:${pct}%` })); }
 
 // ---------- app shell ----------
@@ -226,7 +236,7 @@ function closeDrawer() { $("#drawer").classList.add("hidden"); }
 
 // ---------- PROFILE ----------
 async function viewProfile() {
-  const main = $("#main"); main.replaceChildren(h("div", { class: "muted" }, "Loading…"));
+  const main = $("#main"); main.replaceChildren(...skel(3, 120));
   const data = await api("/api/profile"); const p = data.profile || {
     current_ctc_lpa: "", expected_ctc_lpa: { min: "", target: "" }, usd_to_inr: 88, years_experience: "", locations: { preferred: ["Bengaluru", "Remote-India"], accept_hybrid: true, accept_onsite_outside_preferred: false },
     target_titles: ["Software Engineer", "Backend Engineer"], seniority: { min_level: "junior", max_level: "mid", reject_titles: ["intern", "principal", "staff", "director", "vp", "head", "manager"] },
@@ -499,6 +509,7 @@ async function viewJobs() {
   const BUCKETS = [["accept", "Matched"], ["review", "Not checked"], ["reject", "Not a fit"]];
   let drawAct = () => {};
   async function load() {
+    if (!list.children.length) list.replaceChildren(...skel(6, 36)); // first paint only; later reloads keep the old rows until the new ones arrive
     const p = new URLSearchParams({ bucket: jobsBucket, limit: 50, offset: jobsOffset }); if (jobsPhase) p.set("phase", jobsPhase);
     for (const [k, v] of Object.entries(f)) if (v !== "" && v !== null) p.set(k, v);
     let d; try { d = await api("/api/jobs?" + p); } catch (e) { list.replaceChildren(h("div", { class: "bad" }, e.message)); return; }
@@ -549,6 +560,7 @@ async function viewDashboard() {
   const cutQ = { company: "", portal: "" }, cMore = { n: 8 }, cInput = h("input", { type: "search", placeholder: "Search companies" }), sInput = h("input", { type: "search", placeholder: "Search portals" }),
     cLabel = h("div", { class: "small muted", style: "margin:-2px 0 8px" }), sLabel = h("div", { class: "small muted", style: "margin:-2px 0 8px" }), cList = h("div"), sList = h("div");
   main.replaceChildren(stats, head, cuts, daysCard);
+  stats.replaceChildren(...skel(3, 92)); cuts.replaceChildren(...skel(2, 260)); daysCard.replaceChildren(...skel(1, 150));
   const cutRow = (name, n, max, click) => h("button", { class: "cut", title: "Open these jobs", onclick: click }, h("span", { class: "nm" }, name), bar(n, max), h("span", { class: "n" }, String(n)));
   let d;
   async function load() {
