@@ -44,6 +44,9 @@
   .pill.run::before{background:var(--accent2);animation:pulse 1.2s infinite}
   @keyframes pulse{50%{opacity:.25}}
   main{min-height:60vh}
+  .overlay{position:fixed;inset:0;z-index:80;background:rgba(5,5,10,.6);backdrop-filter:blur(3px);display:grid;place-items:center;padding:16px;animation:rise .2s both}
+  .modal{width:min(440px,100%);background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:var(--shadow)} .modal h2{margin:0 0 6px}
+  .blanklist{margin:0;padding-left:20px;display:grid;gap:3px;font-size:.92rem}
   @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
   @keyframes shimmer{to{background-position:-200% 0}}
   .rise{animation:rise .38s cubic-bezier(.2,.7,.2,1) both}
@@ -200,6 +203,18 @@ function setErrors(root, errors) {
 const skel = (n = 4, h0 = 38) => Array.from({ length: n }, () => h("div", { class: "skel", style: `height:${h0}px;margin:10px 0` }));
 // Content that appears in the page (or in the dashboard's stat/cut rows) fades up, one after another.
 new MutationObserver((ms) => { for (const m of ms) { const pr = m.target; if (!(pr.id === "main" || (pr.classList && (pr.classList.contains("stats") || pr.classList.contains("cuts"))))) continue; let i = 0; for (const n of m.addedNodes) if (n.nodeType === 1) { n.style.animationDelay = Math.min(i++, 6) * 45 + "ms"; n.classList.add("rise"); } } }).observe(document.getElementById("main"), { childList: true, subtree: true });
+// A small dialog asking whether to save with some fields left blank. Resolves true for "Save anyway".
+function confirmBlank(blank, noName) {
+  return new Promise((done) => {
+    const close = (ok) => { ov.remove(); document.removeEventListener("keydown", onKey); done(ok); }, onKey = (e) => { if (e.key === "Escape") close(false); };
+    const ov = h("div", { class: "overlay", onmousedown: (e) => { if (e.target === ov) close(false); } }, h("div", { class: "modal", role: "dialog", "aria-modal": "true" },
+      h("h2", {}, "Some fields are blank"), h("div", { class: "muted small", style: "margin-bottom:10px" }, "You can leave these empty; the matcher simply won't use them:"),
+      h("ul", { class: "blanklist" }, blank.map((b) => h("li", {}, b))),
+      noName ? h("div", { class: "banner", style: "margin:12px 0 0" }, "Without your name, discovery stays locked.") : null,
+      h("div", { class: "row", style: "margin-top:16px;justify-content:flex-end" }, h("button", { class: "btn", onclick: () => close(false) }, "Go back"), h("button", { class: "btn primary", onclick: () => close(true) }, "Save anyway"))));
+    document.addEventListener("keydown", onKey); document.body.append(ov);
+  });
+}
 function bar(done, total) { const pct = total ? Math.min(100, Math.round((100 * done) / total)) : 0; return h("div", { class: "bar-outer" }, h("div", { class: "bar-inner", style: `width:${pct}%` })); }
 
 // ---------- app shell ----------
@@ -238,7 +253,7 @@ function closeDrawer() { $("#drawer").classList.add("hidden"); }
 async function viewProfile() {
   const main = $("#main"); main.replaceChildren(...skel(3, 120));
   const data = await api("/api/profile"); const p = data.profile || {
-    current_ctc_lpa: "", expected_ctc_lpa: { min: "", target: "" }, usd_to_inr: 88, years_experience: "", locations: { preferred: ["Bengaluru"], accept_hybrid: true, accept_onsite_outside_preferred: true },
+    current_ctc_lpa: "", expected_ctc_lpa: { min: "", target: "" }, usd_to_inr: 92, years_experience: "", locations: { preferred: ["Bengaluru"], accept_hybrid: true, accept_onsite_outside_preferred: true },
     target_titles: ["Software Engineer", "Backend Engineer"], seniority: { min_level: "junior", max_level: "mid", reject_titles: ["intern", "principal", "staff", "director", "vp", "head", "manager"] },
     max_required_years: null, must_have_keywords: ["Python"], nice_to_have_keywords: [], exclude_keywords: [], exclude_companies: [], notice_period_days: null, work_authorization: "" };
   const levels = ["intern", "junior", "mid", "senior", "staff", "principal", "director"];
@@ -278,7 +293,7 @@ async function viewProfile() {
       field("USD → INR rate (only for USD postings)", I("usd_to_inr", p.usd_to_inr, "number"), "usd_to_inr"),
       field("Years of experience", I("years_experience", p.years_experience, "number"), "years_experience"),
       field("Max years a posting may require (blank = no limit)", I("max_required_years", p.max_required_years, "number"), "max_required_years"),
-      field("Notice period (days)", I("notice_period_days", p.notice_period_days, "number", { int: true }), "notice_period_days"),
+      field("Notice period (days)", h("select", { "data-f": "notice_period_days" }, [["", "Not set"], ...[...new Set([0, 15, 30, 60, 90, 120, 180, ...(p.notice_period_days != null ? [p.notice_period_days] : [])])].sort((a, b) => a - b).map((n) => [String(n), n === 0 ? "0 (immediate)" : String(n)])].map(([v, t]) => h("option", { value: v, selected: v === String(p.notice_period_days ?? "") }, t))), "notice_period_days"),
       field("Work authorization", h("select", { "data-f": "work_authorization" }, h("option", { value: "Indian citizen", selected: true }, "Indian citizen")), "work_authorization")),
       h("div", { class: "small muted" }, "Your current and expected pay are sent to the AI together with the rest of the profile, so it can judge a job's posted pay. Notice period and work authorization are stored only and never sent.")),
     h("div", { class: "card" }, h("h2", {}, "Where & what"),
@@ -300,8 +315,7 @@ async function viewProfile() {
     h("div", { class: "small muted" }, "Only read for jobs the rules can't decide on their own, and only on this computer (unless you turn on LLM scoring)."), h("div", { id: "resumeList" }),
     h("div", { class: "row", style: "margin-top:10px" }, field("Variant name", h("input", { id: "rName", placeholder: "e.g. backend", maxlength: 40 })),
       field("PDF file", h("input", { id: "rFile", type: "file", accept: "application/pdf" })), h("button", { class: "btn", id: "rUp" }, "Upload"), h("span", { id: "rMsg", class: "small err" })));
-  const secrets = h("div", { class: "card" }, h("h2", {}, "AI matching (OpenAI)"), h("div", { id: "llmStatus" }, "Checking…"));
-  main.replaceChildren(form, resumes, secrets);
+  main.replaceChildren(form, resumes);
 
   const collect = () => {
     const g = (n) => $(`[data-f="${n}"]`, form), val = (n) => g(n).value, c = (n) => g(n).checked;
@@ -316,7 +330,11 @@ async function viewProfile() {
   };
   $("#saveProfile").onclick = async () => {
     setErrors(form, []); const msg = $("#saveMsg"); msg.textContent = "";
-    try { await api("/api/profile", { method: "PUT", json: collect() }); msg.textContent = "Saved ✓  To judge jobs you already have against the new profile, select them on the Jobs tab and click “Re-run matching”."; msg.className = "small ok"; refreshState(); }
+    const v = collect(), blank = [["Your name", !v.name], ["Notice period", v.notice_period_days == null], ["Max years a posting may require (no limit)", v.max_required_years == null],
+      ["Preferred locations (anywhere)", !v.locations.preferred.length], ["Reject titles", !v.seniority.reject_titles.length], ["Must-have keywords", !v.must_have_keywords.length],
+      ["Nice-to-have keywords", !v.nice_to_have_keywords.length], ["Exclude keywords", !v.exclude_keywords.length], ["Exclude companies", !v.exclude_companies.length]].filter((x) => x[1]).map((x) => x[0]);
+    if (blank.length && !(await confirmBlank(blank, !v.name))) return;
+    try { await api("/api/profile", { method: "PUT", json: v }); msg.textContent = "Saved ✓  To judge jobs you already have against the new profile, select them on the Jobs tab and click “Re-run matching”."; msg.className = "small ok"; refreshState(); }
     catch (e) { if (e.status === 422 && e.data && e.data.errors) { setErrors(form, e.data.errors); msg.textContent = "Fix the highlighted fields."; msg.className = "small bad"; } else { msg.textContent = e.message; msg.className = "small bad"; } }
   };
   const drawResumes = (list) => {
@@ -330,19 +348,6 @@ async function viewProfile() {
     const fd = new FormData(); fd.append("name", name); fd.append("file", f);
     try { drawResumes((await api("/api/resumes", { method: "POST", form: fd })).resumes); $("#rFile").value = ""; $("#rName").value = ""; refreshState(); toast("Resume uploaded"); } catch (e) { msg.textContent = e.message; }
   };
-  const llmStatus = async () => {
-    const x = await api("/api/llm"), box = $("#llmStatus");
-    if (x.openai_key_set) { box.replaceChildren(h("div", { class: "ok" }, `✓ OpenAI API key is set (${x.key_hint || "hidden"})`), x.prompt_problem ? h("div", { class: "bad small", style: "margin-top:6px" }, "Prompt problem: " + x.prompt_problem) : null); return; }
-    const inp = h("input", { type: "password", placeholder: "sk-…", autocomplete: "off", style: "max-width:380px" }), msg = h("span", { class: "small err" });
-    const save = async () => {
-      msg.textContent = "";
-      try { await api("/api/llm/key", { method: "PUT", json: { key: inp.value } }); inp.value = ""; toast("API key saved"); llmStatus(); refreshState(); }
-      catch (e) { msg.textContent = e.message; }
-    };
-    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
-    box.replaceChildren(h("div", { class: "row" }, field("OpenAI API key", inp), h("button", { class: "btn primary", onclick: save }, "Save key"), msg));
-  };
-  llmStatus();
 }
 
 // ---------- COMPANIES ----------
@@ -434,7 +439,7 @@ async function viewDiscover() {
   const needName = !(st.candidate_name || "").trim(); // discovery stays locked until the profile has the candidate's name
   const startBox = h("div", { class: "card" }, h("h2", {}, "Start discovery"),
     needName ? h("div", { class: "banner" }, "Please update your profile before the job matcher can match jobs. ", h("a", { href: "#", onclick: (e) => { e.preventDefault(); showTab("Profile"); } }, "Open Profile →")) : null,
-    chk("srcAts", src.ats, "Company career pages I've enabled (Companies tab)"), liToggle, chk("srcMatch", src.match, "Match the jobs with AI afterwards" + (st.openai_key_set ? "" : " (needs OPENAI_API_KEY in .env – see Profile tab)")),
+    chk("srcAts", src.ats, "Company career pages I've enabled (Companies tab)"), liToggle, chk("srcMatch", src.match, "Match the jobs with AI afterwards" + (st.openai_key_set ? "" : " (needs OPENAI_API_KEY in .env)")),
     h("div", { class: "row", style: "margin-top:10px" }, h("button", { class: "btn primary", id: "go", disabled: st.busy || needName, title: needName ? "Save your name in Profile first" : "" }, st.busy ? "A run is in progress…" : "Start now"), h("span", { id: "goMsg", class: "small err" })));
   main.replaceChildren(startBox, liBox, sched);
   drawLi();

@@ -4,7 +4,7 @@ current_ctc_lpa: 20            # your current CTC in lakhs per annum (sent to th
 expected_ctc_lpa:
   min: 28                        # sent to the AI: jobs whose posted pay is clearly below this are a no match
   target: 35                     # sent to the AI
-usd_to_inr: 88                   # sent to the AI to convert dollar salaries
+usd_to_inr: 92                   # sent to the AI to convert dollar salaries
 years_experience: 2
 
 locations:
