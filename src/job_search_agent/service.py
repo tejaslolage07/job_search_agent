@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
 import sqlite3
@@ -42,10 +43,58 @@ class Home:
 
 
 # ---- profile + resumes -----------------------------------------------------------------------------------------------
+RESUME_NAMES = "names.json"  # in the resumes folder: maps each stored file name to the variant name the user typed
+
+
+def _resume_names(home: Home) -> dict[str, str]:
+    try:
+        data = json.loads((home.resumes / RESUME_NAMES).read_text())
+        return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def resume_file(name: str) -> str:
+    """The file a variant name is stored under: a hash of the name, so whatever the user typed can never touch the file path."""
+    return hashlib.sha256(name.encode()).hexdigest()[:16] + ".pdf"
+
+
+def clean_resume_name(name: str) -> str:
+    """Variant names are free text (1 to 60 characters, no control characters). Raises ValueError otherwise."""
+    name = " ".join(name.split())
+    if not 1 <= len(name) <= 60 or any(ord(ch) < 32 for ch in name):
+        raise ValueError("variant name must be 1 to 60 characters")
+    return name
+
+
+def save_resume(home: Home, name: str, data: bytes) -> str:
+    name = clean_resume_name(name)
+    home.resumes.mkdir(parents=True, exist_ok=True)
+    (home.resumes / resume_file(name)).write_bytes(data)
+    names = _resume_names(home); names[resume_file(name)] = name
+    (home.resumes / RESUME_NAMES).write_text(json.dumps(names, indent=1, ensure_ascii=False))
+    return name
+
+
+def delete_resume(home: Home, name: str) -> bool:
+    """Also finds resumes saved before names were hashed (stored as <name>.pdf)."""
+    names = _resume_names(home)
+    file = next((f for f, n in names.items() if n == name), None) or (f"{name}.pdf" if "/" not in name and "\\" not in name and name not in ("", ".", "..") else None)
+    path = home.resumes / file if file else None
+    if not path or not path.is_file():
+        return False
+    path.unlink()
+    if names.pop(path.name, None) is not None:
+        (home.resumes / RESUME_NAMES).write_text(json.dumps(names, indent=1, ensure_ascii=False))
+    return True
+
+
 def list_resumes(home: Home) -> list[dict[str, Any]]:
     if not home.resumes.exists():
         return []
-    return [{"name": p.stem, "file": p.name, "bytes": p.stat().st_size} for p in sorted(home.resumes.glob("*.pdf"))]
+    names = _resume_names(home)
+    rows = [{"name": names.get(p.name, p.stem), "file": p.name, "bytes": p.stat().st_size} for p in home.resumes.glob("*.pdf")]
+    return sorted(rows, key=lambda r: r["name"].lower())
 
 
 def resume_paths(home: Home) -> dict[str, str]:

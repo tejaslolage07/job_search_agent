@@ -137,24 +137,22 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
 
     @app.post("/api/resumes")
     async def upload_resume(name: str = Form(...), file: UploadFile = File(...)) -> dict[str, Any]:
-        if not NAME_RE.match(name):
-            raise HTTPException(422, "variant name must be 1-40 letters, digits, '-' or '_'")
+        try:
+            name = service.clean_resume_name(name)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
         data = await file.read(MAX_RESUME_BYTES + 1)
         if len(data) > MAX_RESUME_BYTES:
             raise HTTPException(413, "resume too large (max 10 MB)")
         if not data.startswith(b"%PDF"):
             raise HTTPException(422, "only PDF files are accepted")
-        home.resumes.mkdir(parents=True, exist_ok=True)
-        (home.resumes / f"{name}.pdf").write_bytes(data)
+        service.save_resume(home, name, data)  # stored under a hash of the name, so the name can be anything
         _refresh_profile_resumes()
         return {"saved": name, "resumes": service.list_resumes(home)}
 
-    @app.delete("/api/resumes/{name}")
+    @app.delete("/api/resumes")
     def delete_resume(name: str) -> dict[str, Any]:
-        if not NAME_RE.match(name):
-            raise HTTPException(422, "bad name")
-        path = home.resumes / f"{name}.pdf"
-        if not path.exists():
+        if not service.delete_resume(home, name):
             raise HTTPException(404, "no such resume")
         path.unlink()
         _refresh_profile_resumes()

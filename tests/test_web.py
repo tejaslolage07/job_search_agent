@@ -139,12 +139,12 @@ def test_the_profile_can_be_saved_without_preferred_locations_or_must_have_keywo
 def test_resume_upload_rules_and_profile_link(home):
     c, _ = make_client(home)
     c.put("/api/profile", json=PROFILE_BODY)
-    assert c.post("/api/resumes", data={"name": "bad name!"}, files={"file": ("r.pdf", PDF, "application/pdf")}).status_code == 422
+    assert c.post("/api/resumes", data={"name": "  "}, files={"file": ("r.pdf", PDF, "application/pdf")}).status_code == 422
     assert c.post("/api/resumes", data={"name": "backend"}, files={"file": ("r.pdf", b"not a pdf", "application/pdf")}).status_code == 422
     assert c.post("/api/resumes", data={"name": "backend"}, files={"file": ("r.pdf", PDF, "application/pdf")}).status_code == 200
     prof = c.get("/api/profile").json()["profile"]
     assert list(prof["resume_paths"]) == ["backend"] and Path(prof["resume_paths"]["backend"]).exists()
-    assert c.delete("/api/resumes/backend").json()["resumes"] == []
+    assert c.delete("/api/resumes", params={"name": "backend"}).json()["resumes"] == []
     assert c.get("/api/profile").json()["profile"]["resume_paths"] == {}
 
 
@@ -640,3 +640,18 @@ def test_discovery_and_schedules_need_the_candidate_name_saved_first(home):
     assert c.post("/api/runs", json=body).status_code == 422
     c.put("/api/profile", json=PROFILE_BODY)
     assert c.post("/api/schedules", json=sched).status_code == 200
+
+
+def test_variant_names_are_free_text_and_never_reach_the_file_path(home):
+    c, _ = make_client(home)
+    c.put("/api/profile", json=PROFILE_BODY)
+    for name in ("Backend (2026) – v2", "../../evil", "a/b\\c"):
+        assert c.post("/api/resumes", data={"name": name}, files={"file": ("r.pdf", PDF, "application/pdf")}).status_code == 200
+    resumes = c.get("/api/profile").json()["resumes"]
+    assert {r["name"] for r in resumes} == {"Backend (2026) – v2", "../../evil", "a/b\\c"}
+    assert all(len(r["file"]) == 20 and "/" not in r["file"] for r in resumes)  # 16 hex characters + .pdf
+    assert not list(Path(home).glob("*evil*")) and not list((Path(home) / "data").glob("*evil*"))
+    assert set(c.get("/api/profile").json()["profile"]["resume_paths"]) == {r["name"] for r in resumes}
+    assert c.delete("/api/resumes", params={"name": "../../evil"}).status_code == 200
+    assert c.delete("/api/resumes", params={"name": "../../evil"}).status_code == 404
+    assert len(c.get("/api/profile").json()["resumes"]) == 2

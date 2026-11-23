@@ -339,7 +339,7 @@ async function viewProfile() {
   };
   const drawResumes = (list) => {
     $("#resumeList").replaceChildren(list.length ? h("table", {}, h("tbody", {}, list.map((r) => h("tr", {}, h("td", {}, h("b", {}, r.name)), h("td", { class: "muted" }, `${Math.round(r.bytes / 1024)} KB`),
-      h("td", {}, h("button", { class: "btn sm danger", onclick: async () => { try { drawResumes((await api(`/api/resumes/${encodeURIComponent(r.name)}`, { method: "DELETE" })).resumes); refreshState(); } catch (e) { toast(e.message, true); } } }, "Remove")))))) : h("div", { class: "muted" }, "No resumes uploaded yet."));
+      h("td", {}, h("button", { class: "btn sm danger", onclick: async () => { try { drawResumes((await api(`/api/resumes?name=${encodeURIComponent(r.name)}`, { method: "DELETE" })).resumes); refreshState(); } catch (e) { toast(e.message, true); } } }, "Remove")))))) : h("div", { class: "muted" }, "No resumes uploaded yet."));
   };
   drawResumes(data.resumes);
   $("#rUp").onclick = async () => {
