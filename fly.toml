@@ -1,4 +1,4 @@
-app = "job-search-agent-CHANGE-ME"   # must be globally unique; `fly launch --no-deploy` can rename it
+app = "job-search-agent-tejaslolage"   # must be globally unique; `fly launch --no-deploy` can rename it
 primary_region = "bom"               # Mumbai; use "iad" for the cheapest rates
 
 [build]
