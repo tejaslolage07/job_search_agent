@@ -49,6 +49,7 @@ class Seniority(BaseModel):
 
 class Profile(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    name: str | None = None              # shown as initials on the dashboard; never sent to the AI
     current_ctc_lpa: float = Field(gt=0)
     expected_ctc_lpa: Expected
     usd_to_inr: float = Field(gt=0)
@@ -74,7 +75,7 @@ class Profile(BaseModel):
 
     def details_text(self) -> str:
         """The profile as it is shown to the AI: the only door from the profile into a prompt. It includes pay (current and expected CTC, USD rate).
-        Notice period, work authorization and the resume paths are not included."""
+        Name, notice period, work authorization and the resume paths are not included."""
         loc = self.locations
         lines = [
             f"Years of experience: {self.years_experience:g}",

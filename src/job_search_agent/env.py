@@ -25,6 +25,21 @@ def parse_env(text: str) -> dict[str, str]:
     return out
 
 
+def set_env_value(path: Path, key: str, value: str) -> None:
+    """Write KEY=value into the .env file (replacing an existing KEY line, keeping every other line), readable by the owner only."""
+    lines = path.read_text().splitlines() if path.is_file() else []
+    new = f"{key}={value}"
+    for i, line in enumerate(lines):
+        m = _LINE.match(line)
+        if m and m.group(1) == key and not line.lstrip().startswith("#"):
+            lines[i] = new
+            break
+    else:
+        lines.append(new)
+    path.write_text("\n".join(lines) + "\n")
+    path.chmod(0o600)
+
+
 def load_env(path: Path, override: bool = False) -> list[str]:
     """Put the values from `path` into os.environ. Variables that already exist (a real shell export) win unless override=True.
     Empty values are skipped, so a blank 'OPENAI_API_KEY=' never hides a key exported elsewhere. Returns the names that were set."""

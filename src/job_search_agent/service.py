@@ -6,7 +6,7 @@ import json
 import os
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import timedelta, datetime
 from pathlib import Path
 from typing import Any
 
@@ -175,7 +175,19 @@ def list_jobs(conn: sqlite3.Connection, bucket: str = "accept", q: str = "", com
         if bucket in ("all", r["bucket"]):
             out.append(_record(r, now))
     ranked = report.rank(out)
-    return {"counts": counts, "phases": phases, "total": len(ranked), "all_ids": [j["id"] for j in ranked[:1000]], "jobs": ranked[offset: offset + limit]}
+    by_company: dict[str, int] = {}
+    by_source: dict[str, int] = {}
+    for j in out:  # the cut of the jobs in this view (selected bucket and filters)
+        by_company[j["company"]] = by_company.get(j["company"], 0) + 1
+        by_source[j["source"]] = by_source.get(j["source"], 0) + 1
+    by_day: dict[str, int] = {}
+    for j in out:
+        day = (j["posted_at"] or j["first_seen_at"])[:10]
+        by_day[day] = by_day.get(day, 0) + 1
+    today = now.date()
+    days = [((today - timedelta(days=i)).isoformat(), by_day.get((today - timedelta(days=i)).isoformat(), 0)) for i in range(13, -1, -1)]  # the last 14 calendar days, oldest first
+    breakdown = {"companies": sorted(by_company.items(), key=lambda kv: (-kv[1], kv[0].lower())), "sources": sorted(by_source.items(), key=lambda kv: -kv[1]), "days": days}
+    return {"counts": counts, "phases": phases, "breakdown": breakdown, "total": len(ranked), "all_ids": [j["id"] for j in ranked[:1000]], "jobs": ranked[offset: offset + limit]}
 
 
 def job_detail(conn: sqlite3.Connection, job_id: int) -> dict[str, Any] | None:

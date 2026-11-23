@@ -19,6 +19,7 @@ from .. import linkedin, service, store, timeutil
 from ..config import ConfigError, MatchingConfig, Profile, load_matching
 from ..matching.llm import LLMConfigError, load_prompt, resolve_model
 from ..discovery_config import DiscoverConfig
+from ..env import set_env_value
 from .runner import RunController
 from .scheduler import MAX_INTERVAL_MINUTES, MIN_INTERVAL_MINUTES, Scheduler, iso
 
@@ -97,8 +98,12 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
                 "SELECT m.bucket, COUNT(*) n FROM jobs j JOIN match_results m ON m.id=(SELECT MAX(id) FROM match_results WHERE job_id=j.id) "
                 "WHERE j.status='active' GROUP BY m.bucket")}
             total = conn.execute("SELECT COUNT(*) FROM jobs WHERE status='active'").fetchone()[0]
+            try:
+                cand = (service.read_profile(home) or {}).get("name")
+            except Exception:  # an invalid profile.yaml must not break the status call
+                cand = None
             return {
-                "home": str(home.root), "profile_exists": home.profile_path.exists(), "resumes": len(service.list_resumes(home)),
+                "candidate_name": cand, "home": str(home.root), "profile_exists": home.profile_path.exists(), "resumes": len(service.list_resumes(home)),
                 "busy": ctl.busy(), "current_run_id": ctl.current_run_id,
                 "openai_key_set": bool(os.environ.get("OPENAI_API_KEY", "").strip()),
                 "linkedin": {"requests_today": linkedin.requests_today(conn)},
@@ -171,6 +176,16 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
             problem = str(exc)
         return {"openai_key_set": bool(key), "key_hint": f"{key[:3]}...{key[-4:]}" if len(key) > 12 else None, "model": resolve_model(cfg.llm),
                 "concurrency": cfg.llm.concurrency, "env_file": str(home.root / ".env"), "prompt_file": str(prompt_path), "resume_prompt_file": str(resume_prompt_path), "prompt_problem": problem}
+
+    @app.put("/api/llm/key")
+    def set_llm_key(body: dict[str, Any]) -> dict[str, Any]:
+        """Save the OpenAI key to the .env file on this computer and use it right away. It is never returned or shown again."""
+        key = str(body.get("key", "")).strip()
+        if len(key) < 20 or re.search(r"\s", key):
+            raise HTTPException(422, "That does not look like an OpenAI API key (it should start with sk- and have no spaces).")
+        set_env_value(home.root / ".env", "OPENAI_API_KEY", key)
+        os.environ["OPENAI_API_KEY"] = key
+        return {"openai_key_set": True, "key_hint": f"{key[:3]}...{key[-4:]}"}
 
     # ---- company catalog -------------------------------------------------------------------------------------
     @app.get("/api/catalog")

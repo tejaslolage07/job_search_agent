@@ -154,6 +154,19 @@ def test_cross_origin_writes_blocked(home):
 KEY = "sk-test-FAKEKEY1234567890"
 
 
+def test_the_openai_key_can_be_saved_from_the_page_and_is_never_echoed_back(home, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    c, _ = make_client(home)
+    assert c.put("/api/llm/key", json={"key": "short"}).status_code == 422
+    r = c.put("/api/llm/key", json={"key": "sk-test-ABCDEFGHIJKLMNOP1234"})
+    assert r.status_code == 200 and "ABCDEFGHIJKLMNOP" not in r.text
+    assert c.get("/api/llm").json()["openai_key_set"] is True
+    env = (Path(home) / ".env").read_text()
+    assert "OPENAI_API_KEY=sk-test-ABCDEFGHIJKLMNOP1234" in env and oct((Path(home) / ".env").stat().st_mode & 0o777) == "0o600"
+    c.put("/api/llm/key", json={"key": "sk-test-ZZZZZZZZZZZZZZZZZZZZ"})
+    assert (Path(home) / ".env").read_text().count("OPENAI_API_KEY=") == 1  # replaced, not appended
+
+
 def test_llm_status_shows_whether_the_key_in_env_is_found_without_ever_revealing_it(home, monkeypatch):
     c, _ = make_client(home)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -244,6 +257,12 @@ def test_linkedin_stage_ingests_and_keeps_duplicates_separate(home):
     assert all(j["company"] != "OtherCo [LinkedIn]" for j in jobs)  # suffix never shown to the user
     assert c.get("/api/jobs?bucket=all&source=linkedin").json()["total"] == 2
     st = c.get("/api/state").json()
+    cut = c.get("/api/jobs?bucket=all").json()["breakdown"]  # the company and job-portal cuts shown on the Jobs page
+    assert dict(cut["companies"])["Acme"] == len(acme) and sum(n for _, n in cut["sources"]) == len(jobs)
+    assert {k for k, _ in cut["sources"]} == {"ats", "linkedin"}
+    assert len(cut["days"]) == 14 and sum(n for _, n in cut["days"]) == len(jobs)  # the posted-day chart on the Dashboard
+    only = c.get("/api/jobs?bucket=all&company=Acme").json()
+    assert only["total"] == len(acme) and all(j["company"] == "Acme" for j in only["jobs"])  # clicking a company on the Dashboard opens its jobs
     assert st["linkedin"]["requests_today"] == 5
 
 

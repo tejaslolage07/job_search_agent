@@ -4,60 +4,142 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Job Search Agent</title>
+<script>try{var t=localStorage.getItem("theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <style>
-  :root{--bg:#f6f7fa;--card:#fff;--fg:#1c2230;--muted:#667085;--line:#e3e6ee;--accent:#2457d6;--accent-fg:#fff;--ok:#127a4b;--warn:#a65b00;--bad:#b3261e;--chip:#eef1f7}
-  @media (prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c26;--fg:#e8ebf2;--muted:#9aa3b5;--line:#2a3142;--accent:#7aa2ff;--accent-fg:#0b1020;--ok:#4cc38a;--warn:#e0a24a;--bad:#ff8a80;--chip:#222839}}
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
-  .bar{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-  .brand{font-weight:700} nav{display:flex;gap:4px;flex-wrap:wrap}
-  nav button{background:none;border:0;padding:8px 12px;border-radius:8px;color:var(--muted);cursor:pointer;font:inherit}
-  nav button.on{background:var(--chip);color:var(--fg);font-weight:600}
-  .spacer{flex:1} .pill{font-size:.8rem;padding:2px 10px;border-radius:99px;background:var(--chip);color:var(--muted)}
-  .pill.run{background:var(--accent);color:var(--accent-fg)}
-  main{max-width:1200px;margin:0 auto;padding:16px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
-  h2{margin:.1em 0 .6em;font-size:1.15rem} h3{margin:1em 0 .4em;font-size:1rem}
-  .muted{color:var(--muted)} .small{font-size:.85rem}
-  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
-  label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:2px}
-  input,select,textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit}
-  input[type=checkbox]{width:auto} .chk{display:flex;gap:8px;align-items:center;font-size:.95rem;color:var(--fg);margin:4px 0}
-  .chk label{margin:0;color:var(--fg);font-size:.95rem}
-  button.btn{padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;font:inherit}
-  button.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)} button.btn:disabled{opacity:.5;cursor:not-allowed}
-  button.btn.danger{color:var(--bad)} button.btn.sm{padding:3px 9px;font-size:.85rem}
-  .err{color:var(--bad);font-size:.82rem;min-height:1em} .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
-  table{width:100%;border-collapse:collapse;font-size:.9rem} th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
-  th{font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+  :root{--bg:#0d0d10;--side:#121216;--card:#16161b;--card2:#1b1b22;--fg:#f3f3f6;--muted:#9a9aa8;--line:#25252d;--accent:#8b5cf6;--accent2:#a78bfa;--accent-fg:#fff;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171;--chip:#1f1f27;--glow:rgba(139,92,246,.35);--shadow:0 8px 30px rgba(0,0,0,.35);color-scheme:dark}
+  :root[data-theme=light]{--bg:#f4f4f8;--side:#fff;--card:#fff;--card2:#f6f5fb;--fg:#17171c;--muted:#6b6b7b;--line:#e6e6ee;--accent:#7c3aed;--accent2:#6d28d9;--ok:#16a34a;--warn:#b45309;--bad:#dc2626;--chip:#efeef7;--glow:rgba(124,58,237,.25);--shadow:0 8px 24px rgba(30,20,60,.08);color-scheme:light}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14.5px/1.5 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .app{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
+  aside{background:var(--side);border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:6px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;padding:4px 8px 16px}
+  .logo{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--accent2),var(--accent));display:grid;place-items:center;box-shadow:0 4px 14px var(--glow)}
+  .logo svg{width:18px;height:18px;stroke:#fff}
+  .navlabel{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:6px 10px}
+  nav{display:flex;flex-direction:column;gap:4px}
+  nav button{display:flex;align-items:center;gap:11px;background:none;border:0;padding:10px 12px;border-radius:10px;color:var(--muted);cursor:pointer;font:inherit;font-weight:500;text-align:left;transition:.15s}
+  nav button svg{width:18px;height:18px;flex:none}
+  nav button:hover{background:var(--chip);color:var(--fg)}
+  nav button.on{background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff;box-shadow:0 6px 18px var(--glow)}
+  .spacer{flex:1}
+  .side-card{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:.82rem}
+  .side-card .row{align-items:center;gap:8px}
+  .themebtn{display:flex;align-items:center;justify-content:space-between;background:none;border:0;color:var(--muted);padding:8px 10px;cursor:pointer;font:inherit;border-radius:10px}
+  .themebtn:hover{background:var(--chip)}
+  .switch{width:34px;height:20px;border-radius:99px;background:var(--chip);border:1px solid var(--line);position:relative}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:.2s}
+  :root:not([data-theme=light]) .switch{background:var(--accent)} :root:not([data-theme=light]) .switch::after{left:16px;background:#fff}
+  .content{padding:26px 32px 20px;max-width:1320px;width:100%}
+  .pagehead .spacer{flex:1} .pagehead{align-items:center}
+  .iconbtn{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--fg);display:grid;place-items:center;cursor:pointer;transition:.15s;padding:0;margin-right:-4px}
+  .iconbtn:hover{border-color:var(--accent2);transform:translateY(-1px)} .iconbtn svg{width:20px;height:20px}
+  .avatar{width:44px;height:44px;border-radius:50%;border:2px solid transparent;background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff;font-weight:700;font-size:.95rem;font-family:inherit;letter-spacing:.02em;display:grid;place-items:center;cursor:pointer;box-shadow:0 4px 14px var(--glow);transition:.15s;padding:0}
+  .avatar:hover{transform:translateY(-1px)} .avatar.on{border-color:var(--fg)} .avatar svg{width:20px;height:20px}
+  .pagehead{display:flex;align-items:flex-end;gap:14px;margin-bottom:22px;flex-wrap:wrap}
+  .pagehead h1{margin:0;font-size:1.75rem;letter-spacing:-.02em;line-height:1.15}
+  .pagehead .sub{color:var(--muted);margin-top:2px}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:.8rem;padding:5px 12px;border-radius:99px;background:var(--chip);color:var(--muted);border:1px solid var(--line)}
+  .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--muted)}
+  .pill.run{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent2);border-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+  .pill.run::before{background:var(--accent2);animation:pulse 1.2s infinite}
+  @keyframes pulse{50%{opacity:.25}}
+  main{min-height:60vh}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:18px}
+  h2{margin:.1em 0 .7em;font-size:1.08rem;font-weight:650;letter-spacing:-.01em} h3{margin:1.1em 0 .45em;font-size:.95rem}
+  .muted{color:var(--muted)} .small{font-size:.84rem}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+  .grid{align-items:stretch} .grid>div{display:flex;flex-direction:column;min-width:0} .grid>div>label{flex:1 1 auto}
+  input:not([type=checkbox]):not([type=file]),select{height:42px}
+  label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:6px;font-weight:500;line-height:1.35}
+  input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--fg);font:inherit;outline:none;transition:.15s}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+  input[type=checkbox]{width:auto;accent-color:var(--accent)} .chk{display:flex;gap:8px;align-items:center;font-size:.95rem;color:var(--fg);margin:5px 0}
+  .chk label{margin:0;color:var(--fg);font-size:.92rem}
+  button.btn{padding:8px 15px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--fg);cursor:pointer;font:inherit;font-weight:500;transition:.15s;text-decoration:none;display:inline-block}
+  button.btn:hover:not(:disabled),a.btn:hover{border-color:var(--accent2);transform:translateY(-1px)}
+  button.btn.primary,a.btn.primary{background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff;border-color:transparent;box-shadow:0 4px 14px var(--glow)}
+  button.btn:disabled{opacity:.45;cursor:not-allowed}
+  button.btn.danger{color:var(--bad)} button.btn.sm,a.btn.sm{padding:4px 11px;font-size:.82rem;border-radius:8px}
+  a.btn{padding:8px 15px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--fg);text-decoration:none;display:inline-block;font-weight:500}
+  .err{color:var(--bad);font-size:.8rem;min-height:1em} .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  table{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:.88rem}
+  th,td{padding:11px 12px;text-align:left;vertical-align:middle}
+  th{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;background:var(--card2);white-space:nowrap}
+  th:first-child{border-radius:10px 0 0 10px} th:last-child{border-radius:0 10px 10px 0}
+  tbody td{border-bottom:1px solid var(--line)} tbody tr:hover td{background:var(--card2)}
   .tablewrap{overflow-x:auto}
-  .badge{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:99px;background:var(--chip);color:var(--muted);white-space:nowrap}
-  .badge.accept{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;padding:2px 10px;border-radius:99px;background:var(--chip);color:var(--muted);white-space:nowrap;font-weight:500}
+  .badge.accept,.badge.reject,.badge.review{padding-left:8px} .badge.accept::before,.badge.reject::before,.badge.review::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .badge.accept{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
   .badge.reject{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
-  .badge.review{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
-  .bar-outer{height:8px;border-radius:99px;background:var(--chip);overflow:hidden} .bar-inner{height:100%;background:var(--accent);transition:width .4s}
+  .badge.review{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+  .bar-outer{height:8px;border-radius:99px;background:var(--chip);overflow:hidden;margin:6px 0} .bar-inner{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .4s}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:18px}
+  .stat{position:relative;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;cursor:pointer;color:var(--fg);font:inherit;transition:.2s;overflow:hidden}
+  .stat:hover{transform:translateY(-2px);border-color:var(--accent2)}
+  .stat .ico{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--chip);margin-bottom:18px}
+  .stat .ico svg{width:18px;height:18px;stroke:var(--accent2)}
+  .stat .lbl{font-size:.82rem;color:var(--muted)} .stat .val{font-size:1.9rem;font-weight:700;letter-spacing:-.02em;margin:2px 0 4px}
+  .stat .delta{font-size:.76rem;color:var(--muted)}
+  .stat.on{background:linear-gradient(160deg,#9b6bff 0%,#6d3fd8 55%,#2a1a55 100%);border-color:var(--accent2);box-shadow:0 12px 34px var(--glow)}
+  .stat.on .lbl,.stat.on .delta{color:rgba(255,255,255,.8)} .stat.on .val{color:#fff} .stat.on .ico{background:rgba(255,255,255,.18)} .stat.on .ico svg{stroke:#fff}
+  .cuts{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px;margin-bottom:18px} .cuts .card{margin:0}
+  .cut{display:grid;grid-template-columns:150px 1fr 36px;align-items:center;gap:12px;width:100%;background:none;border:0;color:var(--fg);font:inherit;padding:6px 8px;border-radius:10px;cursor:pointer;text-align:left}
+  .cut:hover{background:var(--card2)} .cut.on{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+  .cut .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .cut .n{text-align:right;font-weight:650} .cut .bar-outer{margin:0}
+  .cutmore{margin-top:6px}
+  .daychart{display:flex;gap:6px;align-items:stretch;height:190px} .daycol{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .daytrack{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center} .daybar{width:100%;max-width:38px;border-radius:8px 8px 3px 3px;background:linear-gradient(180deg,var(--accent2),var(--accent))}
+  .daynum{font-size:.74rem;font-weight:600;height:1em} .daylbl{font-size:.68rem;color:var(--muted);white-space:nowrap}
+  .cuthead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px} .cuthead h2{margin:0} .cuthead input{width:210px;height:36px;padding:6px 12px;border-radius:99px}
+  @media (max-width:1000px){.cuts{grid-template-columns:1fr}}
+  .split{display:grid;grid-template-columns:1fr;gap:12px}
+  .split .item .top{display:flex;justify-content:space-between;font-size:.84rem}
   .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
   .tabs button{padding:7px 14px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;font:inherit}
-  .tabs button.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end} .row>*{flex:0 1 auto}
-  .banner{padding:10px 14px;border-radius:10px;margin-bottom:12px;background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--fg);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
-  .log{background:var(--bg);border:1px solid var(--line);border-radius:8px;max-height:260px;overflow:auto;padding:8px;font:12px/1.5 ui-monospace,Menlo,monospace}
+  .tabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end} .row>*{flex:0 1 auto}
+  #cq{min-width:230px} td.nw{white-space:nowrap} #saveProfile{margin-bottom:18px} .row:has(#saveProfile){margin-bottom:18px;align-items:center}
+  .row .err:empty{display:none} .row>div:has(>input,>select){min-width:150px} .row button.btn:not(.sm){height:42px} .row>div>label{white-space:nowrap}
+  .row>.small,.row>span.small{align-self:center}
+  .banner{padding:11px 15px;border-radius:12px;margin-bottom:14px;background:color-mix(in srgb,var(--warn) 12%,transparent);color:var(--fg);border:1px solid color-mix(in srgb,var(--warn) 35%,transparent)}
+  .log{background:var(--bg);border:1px solid var(--line);border-radius:10px;max-height:260px;overflow:auto;padding:10px;font:12px/1.55 ui-monospace,Menlo,monospace}
   .log .error{color:var(--bad)} .log .warning{color:var(--warn)}
-  .drawer{position:fixed;top:0;right:0;bottom:0;width:min(640px,100%);background:var(--card);border-left:1px solid var(--line);padding:18px;overflow:auto;z-index:20;box-shadow:-8px 0 30px rgba(0,0,0,.15)}
-  pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;white-space:pre-wrap;font-size:.8rem}
-  a{color:var(--accent)} .hidden{display:none !important}
-  .reasons li{margin:2px 0} .reasons .reject{color:var(--bad)} .reasons .accept,.reasons .plus{color:var(--ok)} .reasons .minus{color:var(--warn)}
-  @media (max-width:640px){.bar{gap:8px}}
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:min(660px,100%);background:var(--card);border-left:1px solid var(--line);padding:22px;overflow:auto;z-index:20;box-shadow:-12px 0 40px rgba(0,0,0,.35)}
+  pre{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;white-space:pre-wrap;font-size:.8rem}
+  a{color:var(--accent2);text-decoration:none} a:hover{text-decoration:underline} a.btn:hover,a.btn.primary:hover{text-decoration:none} .hidden{display:none !important}
+  .reasons li{margin:3px 0} .reasons .reject{color:var(--bad)} .reasons .accept,.reasons .plus{color:var(--ok)} .reasons .minus{color:var(--warn)}
+  .dd{position:relative;width:100%;min-width:0} select.cs-native{display:none !important}
+  .dd-btn{width:100%;height:42px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--card2);color:var(--fg);font:inherit;cursor:pointer;text-align:left;transition:.15s}
+  .dd-btn:hover{border-color:var(--accent2)} .dd-btn:focus-visible,.dd.open .dd-btn{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow);outline:none}
+  .dd-btn span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .dd-btn svg{width:16px;height:16px;flex:none;color:var(--muted);transition:transform .15s} .dd.open .dd-btn svg{transform:rotate(180deg)}
+  .dd-menu{position:fixed;z-index:60;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:var(--shadow),0 0 0 1px rgba(0,0,0,.2);overflow:auto;max-height:280px;animation:ddin .12s ease-out}
+  @keyframes ddin{from{opacity:0;transform:translateY(-4px)}}
+  .dd-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;color:var(--fg);font-size:.92rem;white-space:nowrap}
+  .dd-item.act{background:var(--chip)} .dd-item.sel{color:var(--accent2);font-weight:600} .dd-item svg{width:15px;height:15px;stroke:var(--accent2)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:50;max-width:90%;box-shadow:var(--shadow);background:var(--card2)}
+  ::-webkit-scrollbar{width:10px;height:10px} ::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+  @media (max-width:860px){
+    .app{grid-template-columns:1fr} aside{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px 12px}
+    .brand{padding:0 8px 0 0} .navlabel,.side-card,.themebtn .tl{display:none} nav{flex-direction:row;flex-wrap:wrap} nav button{padding:8px 10px} nav button span{display:none}
+    .content{padding:18px 14px}
+  }
 </style>
 </head>
 <body>
-<header><div class="bar">
-  <span class="brand">Job Search Agent</span>
-  <nav id="nav"></nav><span class="spacer"></span>
-  <span id="chip" class="pill">idle</span>
-</div></header>
-<main id="main"></main>
-<footer id="foot" class="small muted" style="max-width:1200px;margin:0 auto;padding:0 16px 24px"></footer>
+<div class="app">
+<aside>
+  <div class="brand"><span class="logo" id="logo"></span>Job Search Agent</div>
+  <div class="navlabel">Menu</div>
+  <nav id="nav"></nav>
+  <span class="spacer"></span>
+  <div class="side-card"><div class="row"><span id="chip" class="pill">idle</span></div></div>
+</aside>
+<div class="content">
+  <div class="pagehead"><div><h1 id="ptitle"></h1><div class="sub" id="psub"></div></div><span class="spacer"></span><button class="iconbtn" id="theme" aria-label="Toggle dark mode"></button><button class="avatar" id="avatar" title="Profile" aria-label="Profile"></button></div>
+  <main id="main"></main>
+</div>
+</div>
 <div id="drawer" class="drawer hidden"></div>
 
 <script>
@@ -100,7 +182,7 @@ async function api(path, opts = {}) {
 }
 const csv = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
 const num = (s) => (s === "" || s === null ? null : Number(s));
-function toast(msg, bad) { const t = h("div", { class: "banner", style: "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:50;max-width:90%" + (bad ? ";border-color:var(--bad)" : "") }, msg); document.body.append(t); setTimeout(() => t.remove(), bad ? 6000 : 2500); }
+function toast(msg, bad) { const t = h("div", { class: "banner toast", style: bad ? "border-color:var(--bad)" : "" }, msg); document.body.append(t); setTimeout(() => t.remove(), bad ? 6000 : 2500); }
 function field(label, input, name) { return h("div", {}, h("label", {}, label), input, h("div", { class: "err", "data-err": name || "" })); }
 function setErrors(root, errors) {
   root.querySelectorAll("[data-err]").forEach((e) => (e.textContent = ""));
@@ -110,14 +192,32 @@ function setErrors(root, errors) {
 function bar(done, total) { const pct = total ? Math.min(100, Math.round((100 * done) / total)) : 0; return h("div", { class: "bar-outer" }, h("div", { class: "bar-inner", style: `width:${pct}%` })); }
 
 // ---------- app shell ----------
-const TABS = ["Jobs", "Discover", "Runs", "Companies", "Profile"];
-let tab = localStorage.getItem("tab") || "Jobs", appState = null, stream = null;
-function showTab(t) { tab = t; localStorage.setItem("tab", t); closeStream(); renderNav(); ({ Jobs: viewJobs, Discover: viewDiscover, Runs: viewRuns, Companies: viewCompanies, Profile: viewProfile })[t](); }
-function renderNav() { const n = $("#nav"); n.replaceChildren(...TABS.map((t) => h("button", { class: t === tab ? "on" : "", onclick: () => showTab(t) }, t))); }
+const TABS = ["Dashboard", "Jobs", "Discover", "Runs", "Companies", "Profile"];
+const ICONS = { Dashboard: "M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z", Jobs: "M3 7h18v13H3zM8 7V4h8v3", Discover: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5", Runs: "M13 3L4 14h7l-1 7 9-11h-7z", Companies: "M4 21V5l8-2v18M12 9h8v12M7 9h2M7 13h2M7 17h2M15 13h2M15 17h2", Profile: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
+  check: "M5 13l4 4L19 7", clock: "M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z", cross: "M6 6l12 12M18 6L6 18", all: "M4 6h16M4 12h16M4 18h16" };
+const HEAD = { Dashboard: ["Dashboard", "The big picture: where your matched jobs come from"], Jobs: ["Jobs", "Every job the AI has judged against your profile, line by line"], Discover: ["Discover", "Search company pages and LinkedIn for new roles"], Runs: ["Runs", "Live progress and history of discovery runs"], Companies: ["Companies", "Choose which career pages to monitor"], Profile: ["Profile", "What you want: pay, titles, skills and resumes"] };
+function icon(d) { const s = document.createElementNS("http://www.w3.org/2000/svg", "svg"); s.setAttribute("viewBox", "0 0 24 24"); s.setAttribute("fill", "none"); s.setAttribute("stroke", "currentColor"); s.setAttribute("stroke-width", "1.9"); s.setAttribute("stroke-linecap", "round"); s.setAttribute("stroke-linejoin", "round");
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("d", d); s.append(p); return s; }
+$("#logo").append(icon("M3 7h18v13H3zM8 7V4h8v3"));
+const SUN = "M12 4V2M12 22v-2M4 12H2M22 12h-2M5.6 5.6 4.2 4.2M19.8 19.8l-1.4-1.4M5.6 18.4l-1.4 1.4M19.8 4.2l-1.4 1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z", MOON = "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z";
+const isLight = () => document.documentElement.getAttribute("data-theme") === "light";
+const drawTheme = () => { const b = $("#theme"); b.title = isLight() ? "Switch to dark mode" : "Switch to light mode"; b.replaceChildren(icon(isLight() ? MOON : SUN)); };
+$("#theme").onclick = () => { const now = isLight() ? "dark" : "light"; document.documentElement.setAttribute("data-theme", now); try { localStorage.setItem("theme", now); } catch { /* ignore */ } drawTheme(); };
+drawTheme();
+let tab = localStorage.getItem("tab") || "Dashboard", appState = null, stream = null;
+function showTab(t) { tab = t; $("#ptitle").textContent = HEAD[t][0]; $("#psub").textContent = HEAD[t][1]; window.scrollTo(0, 0); localStorage.setItem("tab", t); closeStream(); renderNav(); renderAvatar(); ({ Dashboard: viewDashboard, Jobs: viewJobs, Discover: viewDiscover, Runs: viewRuns, Companies: viewCompanies, Profile: viewProfile })[t](); }
+function renderNav() { const n = $("#nav"); n.replaceChildren(...TABS.filter((t) => t !== "Profile").map((t) => h("button", { class: t === tab ? "on" : "", onclick: () => showTab(t) }, icon(ICONS[t]), h("span", {}, t)))); }
+function initials(name) { const w = (name || "").trim().split(/\s+/).filter(Boolean); if (!w.length) return ""; return (w.length === 1 ? w[0].slice(0, 2) : w[0][0] + w[w.length - 1][0]).toUpperCase(); }
+function renderAvatar() {
+  const a = $("#avatar"), ini = initials(appState && appState.candidate_name);
+  a.title = appState && appState.candidate_name ? `${appState.candidate_name} · Profile` : "Profile (add your name there)";
+  a.classList.toggle("on", tab === "Profile"); a.replaceChildren(ini ? document.createTextNode(ini) : icon(ICONS.Profile));
+}
+$("#avatar").onclick = () => showTab("Profile");
 async function refreshState() {
   try { appState = await api("/api/state"); } catch { return; }
-  $("#foot").textContent = "Data folder: " + appState.home;
-  const c = $("#chip"); c.textContent = appState.busy ? `running #${appState.current_run_id}` : "idle"; c.className = "pill" + (appState.busy ? " run" : "");
+  renderAvatar();
+  const c = $("#chip"); c.textContent = appState.busy ? `Running #${appState.current_run_id}` : "Idle"; c.className = "pill" + (appState.busy ? " run" : "");
 }
 function closeStream() { if (stream) { stream.close(); stream = null; } }
 function closeDrawer() { $("#drawer").classList.add("hidden"); }
@@ -137,6 +237,7 @@ async function viewProfile() {
   const form = h("div", {},
     data.invalid ? h("div", { class: "banner" }, "Your saved profile.yaml has problems: " + data.invalid) : null,
     h("div", { class: "card" }, h("h2", {}, "Compensation & experience"), h("div", { class: "grid" },
+      field("Your name (shown as initials, top right; never sent to the AI)", I("name", p.name), "name"),
       field("Current CTC (LPA)", I("current_ctc_lpa", p.current_ctc_lpa, "number"), "current_ctc_lpa"),
       field("Expected CTC – minimum (LPA)", I("expected_ctc_lpa.min", p.expected_ctc_lpa.min, "number"), "expected_ctc_lpa.min"),
       field("Expected CTC – target (LPA)", I("expected_ctc_lpa.target", p.expected_ctc_lpa.target, "number"), "expected_ctc_lpa.target"),
@@ -165,15 +266,13 @@ async function viewProfile() {
     h("div", { class: "small muted" }, "Only read for jobs the rules can't decide on their own, and only on this computer (unless you turn on LLM scoring)."), h("div", { id: "resumeList" }),
     h("div", { class: "row", style: "margin-top:10px" }, field("Variant name", h("input", { id: "rName", placeholder: "e.g. backend", maxlength: 40 })),
       field("PDF file", h("input", { id: "rFile", type: "file", accept: "application/pdf" })), h("button", { class: "btn", id: "rUp" }, "Upload"), h("span", { id: "rMsg", class: "small err" })));
-  const secrets = h("div", { class: "card" }, h("h2", {}, "AI matching (OpenAI)"),
-    h("div", { class: "small muted" }, "An OpenAI model matches every job: first against your profile details (including your pay), then, if that is unclear, against your resume. Notice period and work authorization are never sent. The key is read from the .env file on this computer and is never shown or stored in the browser."),
-    h("div", { id: "llmStatus", style: "margin-top:8px" }, "Checking…"));
+  const secrets = h("div", { class: "card" }, h("h2", {}, "AI matching (OpenAI)"), h("div", { id: "llmStatus" }, "Checking…"));
   main.replaceChildren(form, resumes, secrets);
 
   const collect = () => {
     const g = (n) => $(`[data-f="${n}"]`, form), val = (n) => g(n).value, c = (n) => g(n).checked;
     return {
-      current_ctc_lpa: num(val("current_ctc_lpa")), expected_ctc_lpa: { min: num(val("expected_ctc_lpa.min")), target: num(val("expected_ctc_lpa.target")) },
+      name: val("name").trim() || null, current_ctc_lpa: num(val("current_ctc_lpa")), expected_ctc_lpa: { min: num(val("expected_ctc_lpa.min")), target: num(val("expected_ctc_lpa.target")) },
       usd_to_inr: num(val("usd_to_inr")), years_experience: num(val("years_experience")), max_required_years: num(val("max_required_years")),
       notice_period_days: num(val("notice_period_days")), work_authorization: val("work_authorization") || null,
       locations: { preferred: csv(val("locations.preferred")), accept_hybrid: c("locations.accept_hybrid"), accept_onsite_outside_preferred: c("locations.accept_onsite_outside_preferred") },
@@ -199,10 +298,15 @@ async function viewProfile() {
   };
   const llmStatus = async () => {
     const x = await api("/api/llm"), box = $("#llmStatus");
-    box.replaceChildren(
-      x.openai_key_set ? h("div", { class: "ok" }, `OpenAI API key found (${x.key_hint || "short key"}). Model: ${x.model}. ${x.concurrency} calls at a time.`)
-        : h("div", {}, h("div", { class: "warn" }, "No OpenAI API key found."), h("div", { class: "small" }, `Add this line to ${x.env_file} and restart the dashboard:`), h("pre", {}, "OPENAI_API_KEY=sk-...")),
-      x.prompt_problem ? h("div", { class: "bad small" }, "Prompt problem: " + x.prompt_problem) : h("div", { class: "small muted" }, `Prompts (edit to change what the AI is asked): ${x.prompt_file} (profile check) and ${x.resume_prompt_file} (resume check for unclear jobs)`));
+    if (x.openai_key_set) { box.replaceChildren(h("div", { class: "ok" }, `✓ OpenAI API key is set (${x.key_hint || "hidden"})`), x.prompt_problem ? h("div", { class: "bad small", style: "margin-top:6px" }, "Prompt problem: " + x.prompt_problem) : null); return; }
+    const inp = h("input", { type: "password", placeholder: "sk-…", autocomplete: "off", style: "max-width:380px" }), msg = h("span", { class: "small err" });
+    const save = async () => {
+      msg.textContent = "";
+      try { await api("/api/llm/key", { method: "PUT", json: { key: inp.value } }); inp.value = ""; toast("API key saved"); llmStatus(); refreshState(); }
+      catch (e) { msg.textContent = e.message; }
+    };
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
+    box.replaceChildren(h("div", { class: "row" }, field("OpenAI API key", inp), h("button", { class: "btn primary", onclick: save }, "Save key"), msg));
   };
   llmStatus();
 }
@@ -217,9 +321,9 @@ async function viewCompanies() {
   const list = h("div"), info = h("div", { class: "small muted" });
   const custom = h("div", { class: "card" }, h("h2", {}, "Add a company by hand"), h("div", { class: "row" },
     field("Company", h("input", { id: "nName" })), field("Careers page or job-board URL", h("input", { id: "nUrl", placeholder: "https://…", style: "min-width:280px" })),
-    field("Type", h("select", { id: "nAts" }, ["auto", "greenhouse", "lever", "ashby", "workday", "custom"].map((o) => h("option", {}, o)))),
+    field("Type", h("select", { id: "nAts" }, ["auto", "greenhouse", "lever", "ashby", "workday", "keka", "zoho", "oracle", "custom"].map((o) => h("option", {}, o)))),
     h("button", { class: "btn", id: "nAdd" }, "Add & enable"), h("span", { id: "nMsg", class: "small err" })));
-  main.replaceChildren(h("div", { class: "card" }, h("h2", {}, "Companies"), h("div", { class: "small muted" }, "Pick which company career pages to monitor. Companies with a verified feed can be crawled right away; others need a working careers URL."),
+  main.replaceChildren(h("div", { class: "card" }, h("h2", {}, "Companies"), h("div", { class: "small muted", style: "margin-bottom:14px" }, "Pick which company career pages to monitor. Companies with a verified feed can be crawled right away; others need a working careers URL."),
     h("div", { class: "row", style: "margin:10px 0" }, field("Search", q), field("Size", band), field("Job feed", ver), field("Crawler", cr),
       h("button", { class: "btn primary", id: "cAdd" }, "Add selected to crawler"), h("button", { class: "btn", id: "cOff" }, "Disable selected")), info, list), custom);
   const load = async () => {
@@ -283,8 +387,7 @@ async function viewDiscover() {
       h("div", { class: "grid" },
         field("Posted within", h("select", { onchange: (e) => (liSettings.window = e.target.value) }, opt([["24hr", "last 24 hours"], ["past week", "past week"], ["past month", "past month"]], liSettings.window))),
         field("Max listings per run (shared across your searches)", h("input", { type: "number", min: 1, max: 1000, value: liSettings.max_listings, oninput: (e) => { liSettings.max_listings = +e.target.value; } })),
-        field("Parallel requests (searching and descriptions)", h("select", { onchange: (e) => { liSettings.workers = +e.target.value; drawLi(); } }, [1, 2, 3, 4, 6].map((n) => h("option", { value: n, selected: n === liSettings.workers }, n))))),
-      liSettings.workers > 4 ? h("div", { class: "small warn" }, "Requests are spread evenly, so higher values are faster without bursts, but how many parallel requests LinkedIn tolerates is unproven. If it refuses us, the run stops and keeps what it already collected.") : null);
+        field("Parallel requests (searching and descriptions)", h("select", { onchange: (e) => { liSettings.workers = +e.target.value; drawLi(); } }, [1, 2, 3, 4, 6].map((n) => h("option", { value: n, selected: n === liSettings.workers }, n))))));
   };
   const liToggle = chk("srcLi", src.linkedin, "LinkedIn jobs (search + descriptions)");
   const sched = h("div", { class: "card" }), schedList = h("div");
@@ -377,53 +480,102 @@ async function viewRuns() {
 
 // ---------- JOBS ----------
 let jobsBucket = "accept", jobsOffset = 0;
-const jobFilters = JSON.parse(localStorage.getItem("jobFilters") || "null") || { q: "", source: "", since: "", min_score: "", state: "" };
+const jobFilters = JSON.parse(localStorage.getItem("jobFilters") || "null") || { q: "", company: "", source: "", since: "", state: "" };
+jobFilters.company = jobFilters.company || ""; delete jobFilters.min_score; // the score filter was removed: a saved value must not keep filtering jobs invisibly
 if (/h$/.test(jobFilters.since || "")) jobFilters.since = "2d"; // filters saved before Posted became calendar days (e.g. "24h")
 async function viewJobs() {
   const main = $("#main");
   let jobsPhase = ""; // "", "profile" or "resume": a view toggle only, never saved
   const sel = new Set(), actBar = h("div", { class: "row small", style: "gap:8px;margin-bottom:8px" }); // jobs ticked for "Re-run matching" (page-local, never saved)
-  const phaseBar = h("div", { class: "row small", style: "gap:8px;margin:6px 0" });
+  const phaseBar = h("div", { class: "row small", style: "gap:8px;margin:0 0 16px;align-items:center" });
   const f = jobFilters, tabsEl = h("div", { class: "tabs" }), list = h("div", { class: "card" }), notice = h("div", { class: "banner hidden" });
   const inp = (key, ph, type = "text") => h("input", { type, placeholder: ph, value: f[key], style: type === "number" ? "width:90px" : "", onchange: (e) => { f[key] = e.target.value; jobsOffset = 0; localStorage.setItem("jobFilters", JSON.stringify(f)); load(); } });
   const selF = (key, opts) => h("select", { onchange: (e) => { f[key] = e.target.value; jobsOffset = 0; localStorage.setItem("jobFilters", JSON.stringify(f)); load(); } }, opts.map(([v, t]) => h("option", { value: v, selected: v === f[key] }, t)));
-  main.replaceChildren(phaseBar, tabsEl, h("div", { class: "card" }, h("div", { class: "row" }, field("Search", inp("q", "title, company, location")),
+  main.replaceChildren(h("div", { class: "card" }, h("div", { class: "row" }, field("Search", inp("q", "title, company, location")),
     field("Source", selF("source", [["", "all"], ["ats", "company pages"], ["linkedin", "LinkedIn"]])), field("Posted (IST dates)", selF("since", [["", "any time"], ["today", "today"], ["2d", "yesterday & today"], ["3d", "last 3 days"], ["7d", "last 7 days"], ["30d", "last 30 days"]])),
-    field("Min score", inp("min_score", "0", "number")), field("My list", selF("state", [["", "active"], ["saved", "saved"], ["applied", "applied"], ["hidden", "hidden"]])))), notice, list);
+    field("My list", selF("state", [["", "active"], ["saved", "saved"], ["applied", "applied"], ["hidden", "hidden"]])))), notice, tabsEl, phaseBar, list);
   const BUCKETS = [["accept", "Matched"], ["review", "Not checked"], ["reject", "Not a fit"]];
   let drawAct = () => {};
   async function load() {
     const p = new URLSearchParams({ bucket: jobsBucket, limit: 50, offset: jobsOffset }); if (jobsPhase) p.set("phase", jobsPhase);
     for (const [k, v] of Object.entries(f)) if (v !== "" && v !== null) p.set(k, v);
     let d; try { d = await api("/api/jobs?" + p); } catch (e) { list.replaceChildren(h("div", { class: "bad" }, e.message)); return; }
-    tabsEl.replaceChildren(...BUCKETS.map(([k, t]) => h("button", { class: k === jobsBucket ? "on" : "", onclick: () => { jobsBucket = k; jobsOffset = 0; load(); } }, `${t} (${d.counts[k]})`)));
-    const PH = [["", "All decided jobs", d.phases.profile + d.phases.resume], ["profile", "Resolved from profile details", d.phases.profile], ["resume", "Resume-checked (profile was unclear)", d.phases.resume]];
+    tabsEl.replaceChildren(h("button", { class: "btn sm", style: "margin-right:6px", onclick: () => showTab("Dashboard") }, "← Dashboard"),
+      ...BUCKETS.map(([k, t]) => h("button", { class: k === jobsBucket ? "on" : "", onclick: () => { jobsBucket = k; jobsOffset = 0; load(); } }, `${t} (${d.counts[k]})`)));
+    const PH = [["", "All decided jobs", d.phases.profile + d.phases.resume], ["profile", "Rejected from profile details", d.phases.profile], ["resume", "Resume-checked (profile said match or unclear)", d.phases.resume]];
     phaseBar.replaceChildren(h("span", { class: "muted" }, "Decided by:"), ...PH.map(([k, t, n]) => h("button", { class: "btn sm" + (k === jobsPhase ? " primary" : ""), onclick: () => { jobsPhase = k; jobsOffset = 0; load(); } }, `${t} (${n})`)));
     // Filters are saved between visits: say so loudly, show how many jobs they hide, and offer one click to clear them.
     const SINCE = { today: "today", "2d": "yesterday & today", "3d": "last 3 days", "7d": "last 7 days", "30d": "last 30 days" }, SRC = { ats: "company pages", linkedin: "LinkedIn" };
-    const on = [f.q ? `search "${f.q}"` : null, f.source ? `source: ${SRC[f.source] || f.source}` : null, f.since ? `posted: ${SINCE[f.since] || f.since}` : null,
-      Number(f.min_score) > 0 ? `score ≥ ${f.min_score}` : null, f.state ? `my list: ${f.state}` : null].filter(Boolean);
+    const on = [f.company ? `company: ${f.company}` : null, f.q ? `search "${f.q}"` : null, f.source ? `source: ${SRC[f.source] || f.source}` : null, f.since ? `posted: ${SINCE[f.since] || f.since}` : null,
+      f.state ? `my list: ${f.state}` : null].filter(Boolean);
     if (!on.length) notice.classList.add("hidden");
     else {
       let all = null; try { const u = await api("/api/jobs?bucket=all&limit=1"); all = u.counts.accept + u.counts.review + u.counts.reject; } catch { /* the notice still helps without the total */ }
       const shown = d.counts.accept + d.counts.review + d.counts.reject;
       notice.replaceChildren(h("b", {}, "Filters are on: "), on.join(" · "), ` — showing ${shown}${all !== null ? ` of ${all}` : ""} jobs. `,
-        h("button", { class: "btn sm", onclick: () => { Object.assign(f, { q: "", source: "", since: "", min_score: "", state: "" }); localStorage.setItem("jobFilters", JSON.stringify(f)); jobsOffset = 0; viewJobs(); } }, "Clear filters"));
+        h("button", { class: "btn sm", onclick: () => { Object.assign(f, { q: "", company: "", source: "", since: "", state: "" }); localStorage.setItem("jobFilters", JSON.stringify(f)); jobsOffset = 0; viewJobs(); } }, "Clear filters"));
       notice.classList.remove("hidden");
     }
     if (!d.jobs.length) { list.replaceChildren(h("div", { class: "muted" }, d.counts.accept + d.counts.review + d.counts.reject === 0 ? "No scored jobs yet. Save your profile, then run discovery with matching on." : "Nothing here with these filters.")); return; }
     const act = (j, st, label) => h("button", { class: "btn sm" + (j.user_state === st ? " primary" : ""), onclick: async () => { await api(`/api/jobs/${j.id}/state`, { method: "PUT", json: { state: j.user_state === st ? "none" : st } }); load(); } }, label);
     drawAct = () => actBar.replaceChildren(h("span", { class: "muted" }, sel.size ? `${sel.size} selected` : "Re-run matching after changing your profile:"), h("button", { class: "btn sm primary", disabled: !sel.size, onclick: () => rematch([...sel]) }, `Re-run matching for selected (${sel.size})`), h("button", { class: "btn sm", onclick: () => rematch(d.all_ids) }, `Re-run for all ${d.total} in this view`), sel.size ? h("button", { class: "btn sm", onclick: () => { sel.clear(); drawAct(); load(); } }, "Clear selection") : null);
     drawAct();
-    list.replaceChildren(actBar, h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, [h("input", { type: "checkbox", title: "Select all jobs on this page", checked: d.jobs.length > 0 && d.jobs.every((j) => sel.has(j.id)), onchange: (e) => { for (const j of d.jobs) e.target.checked ? sel.add(j.id) : sel.delete(j.id); drawAct(); load(); } }), "Posted", "Company", "Role", "Where", "Pay", "Verdict", "Why", ""].map((t) => h("th", {}, t)))),
+    list.replaceChildren(actBar, h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, [h("input", { type: "checkbox", title: "Select all jobs on this page", checked: d.jobs.length > 0 && d.jobs.every((j) => sel.has(j.id)), onchange: (e) => { for (const j of d.jobs) e.target.checked ? sel.add(j.id) : sel.delete(j.id); drawAct(); load(); } }), "Posted", "Company", "Role", "Where", "Pay", "Verdict", "Source", "Why", ""].map((t) => h("th", {}, t)))),
       h("tbody", {}, d.jobs.map((j) => h("tr", {}, h("td", {}, h("input", { type: "checkbox", checked: sel.has(j.id), onchange: (e) => { e.target.checked ? sel.add(j.id) : sel.delete(j.id); drawAct(); } })), h("td", { class: "small" }, j.age), h("td", {}, h("b", {}, j.company), h("div", {}, h("span", { class: "badge" }, j.source === "linkedin" ? "LinkedIn" : "company page"))),
         h("td", {}, h("a", { href: "#", onclick: (e) => { e.preventDefault(); openJob(j.id); } }, j.title), j.user_state ? h("div", {}, h("span", { class: "badge review" }, j.user_state)) : null),
-        h("td", { class: "small" }, j.location || "—"), h("td", { class: "small" }, j.salary), h("td", {}, h("span", { class: "badge " + j.bucket }, j.bucket === "accept" ? "match" : j.bucket === "reject" ? "no match" : "unchecked")),
+        h("td", { class: "small nw" }, j.location || "—"), h("td", { class: "small nw" }, j.salary), h("td", {}, h("span", { class: "badge " + j.bucket }, j.bucket === "accept" ? "match" : j.bucket === "reject" ? "no match" : "unchecked")),
         h("td", { class: "small muted" }, j.bucket === "review" ? "AI check failed" : j.stage_decided === 1 ? "from profile details" : "resume compared"),
-        h("td", { class: "small muted", style: "max-width:300px" }, j.top_reasons.join(" · ")),
-        h("td", { style: "white-space:nowrap" }, extLink(j.url, "Open job ↗", "btn sm primary" ), " ", act(j, "saved", "Save"), " ", act(j, "applied", "Applied"), " ", act(j, "hidden", "Hide"))))))),
+        h("td", { class: "small muted", style: "min-width:140px;max-width:240px" }, j.top_reasons.join(" · ")),
+        h("td", { style: "min-width:170px;max-width:210px;line-height:2.1" }, extLink(j.url, "Open job ↗", "btn sm primary" ), " ", act(j, "saved", "Save"), " ", act(j, "applied", "Applied"), " ", act(j, "hidden", "Hide"))))))),
       h("div", { class: "row", style: "margin-top:8px" }, h("button", { class: "btn sm", disabled: jobsOffset === 0, onclick: () => { jobsOffset = Math.max(0, jobsOffset - 50); load(); } }, "← Prev"),
         h("span", { class: "small muted" }, `${jobsOffset + 1}–${Math.min(jobsOffset + 50, d.total)} of ${d.total}`), h("button", { class: "btn sm", disabled: jobsOffset + 50 >= d.total, onclick: () => { jobsOffset += 50; load(); } }, "Next →")));
+  }
+  load();
+}
+// ---------- DASHBOARD (parent view: high-level metrics; clicking a company or portal opens the line-level Jobs page) ----------
+let dashBucket = "accept";
+function goJobs(o) {
+  jobsBucket = o.bucket || "accept"; jobsOffset = 0;
+  Object.assign(jobFilters, { q: "", company: o.company || "", source: o.source || "", since: "", state: "" });
+  localStorage.setItem("jobFilters", JSON.stringify(jobFilters)); showTab("Jobs");
+}
+async function viewDashboard() {
+  const main = $("#main"), MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const BUCKETS = [["accept", "Matched", "check"], ["review", "Not checked", "clock"], ["reject", "Not a fit", "cross"]], SRCN = { ats: "Company pages", linkedin: "LinkedIn" };
+  const stats = h("div", { class: "stats" }), cuts = h("div", { class: "cuts" }), daysCard = h("div", { class: "card" }), head = h("div", { class: "row", style: "justify-content:space-between;align-items:center;margin:0 0 12px" });
+  const cutQ = { company: "", portal: "" }, cMore = { n: 8 }, cInput = h("input", { type: "search", placeholder: "Search companies" }), sInput = h("input", { type: "search", placeholder: "Search portals" }),
+    cLabel = h("div", { class: "small muted", style: "margin:-2px 0 8px" }), sLabel = h("div", { class: "small muted", style: "margin:-2px 0 8px" }), cList = h("div"), sList = h("div");
+  main.replaceChildren(stats, head, cuts, daysCard);
+  const cutRow = (name, n, max, click) => h("button", { class: "cut", title: "Open these jobs", onclick: click }, h("span", { class: "nm" }, name), bar(n, max), h("span", { class: "n" }, String(n)));
+  let d;
+  async function load() {
+    try { d = await api(`/api/jobs?bucket=${dashBucket}&limit=1`); } catch (e) { main.replaceChildren(h("div", { class: "card bad" }, e.message)); return; }
+    const c = d.counts, total = c.accept + c.review + c.reject, pct = (n) => (total ? Math.round((100 * n) / total) : 0), bk = d.breakdown || { companies: [], sources: [], days: [] };
+    const SUB = { accept: `${pct(c.accept)}% of all scored jobs`, review: "AI check failed, retried next run", reject: `${pct(c.reject)}% of all scored jobs` };
+    stats.replaceChildren(...BUCKETS.map(([k, t, ic]) => h("button", { class: "stat" + (k === dashBucket ? " on" : ""), onclick: () => { dashBucket = k; cMore.n = 8; load(); } },
+        h("div", { class: "ico" }, icon(ICONS[ic])), h("div", { class: "lbl" }, t), h("div", { class: "val" }, String(c[k])), h("div", { class: "delta" }, SUB[k]))),
+      h("div", { class: "stat", style: "cursor:default" }, h("div", { class: "ico" }, icon(ICONS.all)), h("div", { class: "lbl" }, "Decided by"), h("div", { class: "split" },
+        ...[["Profile details", d.phases.profile], ["Resume check", d.phases.resume]].map(([t, n]) => h("div", { class: "item" }, h("div", { class: "top" }, h("span", {}, t), h("b", {}, String(n))), bar(n, d.phases.profile + d.phases.resume))))));
+    const bname = (BUCKETS.find((b) => b[0] === dashBucket) || ["", ""])[1].toLowerCase(), cur = c[dashBucket];
+    head.replaceChildren(h("h2", { style: "margin:0" }, `${bname[0].toUpperCase() + bname.slice(1)} jobs: ${cur}`), h("button", { class: "btn primary", disabled: !cur, onclick: () => goJobs({ bucket: dashBucket }) }, `View all ${cur} jobs →`));
+    const cmax = bk.companies.length ? bk.companies[0][1] : 1, smax = bk.sources.length ? bk.sources[0][1] : 1;
+    const drawCuts = () => {
+      const cq = cutQ.company.trim().toLowerCase(), sq = cutQ.portal.trim().toLowerCase();
+      const comps = bk.companies.filter(([n]) => !cq || n.toLowerCase().includes(cq)), srcs = bk.sources.filter(([k]) => !sq || (SRCN[k] || k).toLowerCase().includes(sq)), shown = cq ? comps : comps.slice(0, cMore.n);
+      cLabel.textContent = cq ? `${comps.length} of ${bk.companies.length} companies match "${cutQ.company.trim()}"` : `${bk.companies.length} companies with ${bname} jobs · click one to see its jobs`;
+      sLabel.textContent = sq ? `${srcs.length} of ${bk.sources.length} portals match "${cutQ.portal.trim()}"` : `Where the ${bname} jobs were found · click one to see its jobs`;
+      cList.replaceChildren(shown.length ? shown.map(([n, v]) => cutRow(n, v, cmax, () => goJobs({ bucket: dashBucket, company: n }))) : h("div", { class: "muted" }, cq ? "No company matches." : "Nothing to show."),
+        !cq && comps.length > cMore.n ? h("button", { class: "btn sm cutmore", onclick: () => { cMore.n += 10; drawCuts(); } }, `Show more (${comps.length - cMore.n} left)`) : null,
+        !cq && cMore.n > 8 && comps.length <= cMore.n ? h("button", { class: "btn sm cutmore", onclick: () => { cMore.n = 8; drawCuts(); } }, "Show fewer") : null);
+      sList.replaceChildren(srcs.length ? srcs.map(([k, v]) => cutRow(SRCN[k] || k, v, smax, () => goJobs({ bucket: dashBucket, source: k }))) : h("div", { class: "muted" }, sq ? "No portal matches." : "Nothing to show."));
+    };
+    cuts.replaceChildren(h("div", { class: "card" }, h("div", { class: "cuthead" }, h("h2", {}, "By company"), cInput), cLabel, cList), h("div", { class: "card" }, h("div", { class: "cuthead" }, h("h2", {}, "By job portal"), sInput), sLabel, sList));
+    cInput.oninput = (e) => { cutQ.company = e.target.value; drawCuts(); }; sInput.oninput = (e) => { cutQ.portal = e.target.value; drawCuts(); };
+    drawCuts();
+    const mx = Math.max(1, ...bk.days.map(([, n]) => n));
+    daysCard.replaceChildren(h("h2", {}, `${bname[0].toUpperCase() + bname.slice(1)} jobs by posted day`), h("div", { class: "small muted", style: "margin:-6px 0 12px" }, "Last 14 days (IST). Jobs with no posted date use the day they were first seen."),
+      h("div", { class: "daychart" }, bk.days.map(([day, n]) => h("div", { class: "daycol", title: `${day}: ${n}` }, h("div", { class: "daynum" }, n ? String(n) : ""), h("div", { class: "daytrack" }, h("div", { class: "daybar", style: `height:${Math.max(n ? 4 : 1, (100 * n) / mx)}%;${n ? "" : "opacity:.25"}` })), h("div", { class: "daylbl" }, `${+day.slice(8)} ${MON[+day.slice(5, 7) - 1]}`)))));
+    if (!total) main.replaceChildren(h("div", { class: "card" }, h("h2", {}, "No scored jobs yet"), h("div", { class: "muted", style: "margin-bottom:12px" }, "Save your profile, then run discovery with matching turned on."), h("button", { class: "btn primary", onclick: () => showTab("Discover") }, "Go to Discover")));
   }
   load();
 }
@@ -440,16 +592,50 @@ async function openJob(id) {
     h("div", { class: "muted" }, `${j.company} · ${j.location || "location not stated"} · ${j.source === "linkedin" ? "from LinkedIn" : "company career page"}`),
     h("div", { class: "row", style: "margin:10px 0" }, extLink(j.url, "Open job ↗ (apply there)", "btn primary"), h("button", { class: "btn", onclick: () => rematch([j.id]) }, "Re-run matching for this job"), m ? h("span", { class: "badge " + m.bucket }, m.bucket === "accept" ? "match" : m.bucket === "reject" ? "no match" : "AI check failed") : null),
     m ? h("div", {}, h("h3", {}, "Why it was " + (m.bucket === "accept" ? "matched" : m.bucket === "reject" ? "rejected" : "not decided")),
-      h("div", { class: "small muted" }, `${m.bucket === "review" ? "The AI check failed; it will be retried on the next run." : m.stage_decided === 1 ? "Decided by the AI from your profile details." : "The profile details were not enough, so the AI compared the job with your resume."} ${m.resume_read ? `Resume used: ${m.resume_variant}.` : "Your resume was not sent for this job."}`),
+      h("div", { class: "small muted" }, `${m.bucket === "review" ? "The AI check failed; it will be retried on the next run." : m.stage_decided === 1 ? "Rejected by the AI from your profile details." : "The profile check said match or unclear, so the AI compared the job with your resume, and that decided it."} ${m.resume_read ? `Resume used: ${m.resume_variant}.` : "Your resume was not sent for this job."}`),
       h("ul", { class: "reasons" }, m.reasons.map((r) => h("li", { class: r.effect }, h("b", {}, r.rule.replaceAll("_", " ")), ": ", r.detail))),
       h("details", {}, h("summary", { class: "small muted" }, "Exact inputs used"), h("pre", {}, JSON.stringify(m.inputs, null, 2)))) : h("div", { class: "muted" }, "Not scored yet."),
     h("h3", {}, "Description"), h("pre", {}, j.description_text || "(no description was collected for this job)"),
     h("h3", {}, "History"), h("ul", { class: "small" }, j.events.map((e) => h("li", {}, `${ist(e.created_at)} – ${e.type}`))));
 }
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !ddOpen) closeDrawer(); });
+
+// ---------- styled dropdowns: every <select> keeps working (value, change event) but is drawn as a themed menu ----------
+let ddOpen = null;
+function ddClose() { if (ddOpen) { ddOpen.menu.remove(); ddOpen.wrap.classList.remove("open"); ddOpen = null; } }
+function enhanceSelect(sel) {
+  if (sel.dataset.dd) return; sel.dataset.dd = "1"; sel.classList.add("cs-native");
+  const label = h("span"), btn = h("button", { type: "button", class: "dd-btn", "aria-haspopup": "listbox" }, label, icon("M6 9l6 6 6-6")), wrap = h("div", { class: "dd" }, btn);
+  sel.before(wrap);
+  const sync = () => { const o = sel.options[sel.selectedIndex]; label.textContent = o ? o.textContent : ""; };
+  sync(); sel.addEventListener("change", sync);
+  const open = () => {
+    ddClose(); const opts = [...sel.options]; let act = Math.max(0, sel.selectedIndex);
+    const menu = h("div", { class: "dd-menu", role: "listbox" }), items = opts.map((o, i) => h("div", { class: "dd-item" + (i === sel.selectedIndex ? " sel" : ""), role: "option", onmousedown: (e) => { e.preventDefault(); pick(i); }, onmousemove: () => mark(i) }, h("span", {}, o.textContent), i === sel.selectedIndex ? icon("M5 13l4 4L19 7") : null));
+    const mark = (i) => { act = i; items.forEach((el, j) => el.classList.toggle("act", j === i)); items[i].scrollIntoView({ block: "nearest" }); };
+    const pick = (i) => { sel.selectedIndex = i; sel.dispatchEvent(new Event("change", { bubbles: true })); ddClose(); btn.focus(); };
+    menu.append(...items); document.body.append(menu); wrap.classList.add("open");
+    const r = btn.getBoundingClientRect(), mh = Math.min(menu.scrollHeight, 280), below = innerHeight - r.bottom - 12;
+    menu.style.minWidth = r.width + "px"; menu.style.left = Math.min(r.left, innerWidth - menu.offsetWidth - 8) + "px";
+    menu.style.top = (below >= mh || below >= r.top ? r.bottom + 6 : r.top - mh - 6) + "px"; if (below < mh && below < r.top) menu.style.maxHeight = Math.min(280, r.top - 12) + "px";
+    ddOpen = { menu, wrap, mark, pick, get act() { return act; }, n: opts.length }; mark(act);
+  };
+  btn.addEventListener("click", () => (ddOpen && ddOpen.wrap === wrap ? ddClose() : open()));
+  btn.addEventListener("keydown", (e) => {
+    if (!ddOpen || ddOpen.wrap !== wrap) { if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) { e.preventDefault(); open(); } return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); ddOpen.mark(Math.min(ddOpen.n - 1, ddOpen.act + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); ddOpen.mark(Math.max(0, ddOpen.act - 1)); }
+    else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ddOpen.pick(ddOpen.act); }
+    else if (e.key === "Escape" || e.key === "Tab") ddClose();
+  });
+}
+document.addEventListener("mousedown", (e) => { if (ddOpen && !ddOpen.menu.contains(e.target) && !ddOpen.wrap.contains(e.target)) ddClose(); });
+addEventListener("resize", ddClose); document.addEventListener("scroll", (e) => { if (ddOpen && !ddOpen.menu.contains(e.target)) ddClose(); }, true);
+const enhanceAll = (root) => (root.querySelectorAll ? root.querySelectorAll("select") : []).forEach(enhanceSelect);
+new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1) { if (n.tagName === "SELECT") enhanceSelect(n); else enhanceAll(n); } }).observe(document.body, { childList: true, subtree: true });
 
 // ---------- boot ----------
-(async () => { renderNav(); await refreshState(); setInterval(refreshState, 5000); showTab(TABS.includes(tab) ? tab : "Jobs"); })();
+(async () => { renderNav(); await refreshState(); setInterval(refreshState, 5000); showTab(TABS.includes(tab) ? tab : "Dashboard"); })();
 </script>
 </body>
 </html>
