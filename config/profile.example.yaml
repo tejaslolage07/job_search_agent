@@ -10,7 +10,7 @@ years_experience: 2
 locations:
   preferred: [Bengaluru, Remote-India]   # city names, or "Remote-<Country>"; Bangalore == Bengaluru
   accept_hybrid: true                    # hybrid roles acceptable
-  accept_onsite_outside_preferred: false # onsite/hybrid/remote-elsewhere roles outside preferred acceptable
+  accept_onsite_outside_preferred: true # onsite/hybrid/remote-elsewhere roles outside preferred acceptable
 
 target_titles: [Forward Deployed Engineer, Backend Engineer, AI Engineer, Software Engineer]
 

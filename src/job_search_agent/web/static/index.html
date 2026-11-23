@@ -304,7 +304,7 @@ async function viewProfile() {
         field("Seniority – highest", sel("seniority.max_level", levels, p.seniority.max_level), "seniority.max_level"),
         field("Reject titles containing", multi("seniority.reject_titles", REJECT, p.seniority.reject_titles, "None"), "seniority.reject_titles")),
       chk("locations.accept_hybrid", p.locations.accept_hybrid, "Hybrid roles are acceptable"),
-      chk("locations.accept_onsite_outside_preferred", p.locations.accept_onsite_outside_preferred, "Roles outside my preferred locations are acceptable")),
+      chk("locations.accept_onsite_outside_preferred", p.locations.accept_onsite_outside_preferred ?? true, "Roles outside my preferred locations are acceptable")),
     h("div", { class: "card" }, h("h2", {}, "Keywords"), h("div", { class: "grid" },
       field("Must-have keywords (optional)", T("must_have_keywords", p.must_have_keywords), "must_have_keywords"),
       field("Nice-to-have keywords", T("nice_to_have_keywords", p.nice_to_have_keywords), "nice_to_have_keywords"),

@@ -28,7 +28,7 @@ class Locations(BaseModel):
     model_config = ConfigDict(extra="forbid")
     preferred: list[str] = []   # optional: empty means no location preference
     accept_hybrid: bool
-    accept_onsite_outside_preferred: bool
+    accept_onsite_outside_preferred: bool = True   # on unless the user turns it off
 
 
 class Seniority(BaseModel):
