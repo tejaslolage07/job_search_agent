@@ -302,7 +302,9 @@ def test_linkedin_defaults_come_from_profile(home):
     c.put("/api/profile", json=PROFILE_BODY)
     qs = c.get("/api/linkedin/defaults").json()["queries"]
     assert {"keyword": "Backend Engineer", "location": "Bengaluru"} == {k: qs[0][k] for k in ("keyword", "location")}
-    assert any(q["location"] == "India" and q["remote_filter"] == "remote" for q in qs)
+    assert {q["location"] for q in qs} == set(PROFILE_BODY["locations"]["preferred"]) - {"Remote-India"} | {"India"}  # every selected location; Remote-India means India
+    assert {q["keyword"] for q in qs} == set(PROFILE_BODY["target_titles"])
+    assert all(q["job_type"] == "full time" and q["remote_filter"] is None and q["experience_level"] is None and q["sort_by"] == "recent" for q in qs)
 
 
 # ---- schedules -------------------------------------------------------------------------------------------------------

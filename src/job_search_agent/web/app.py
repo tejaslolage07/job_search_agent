@@ -246,16 +246,15 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
             prof = None
         if not prof:
             return {"queries": []}
-        locs: list[tuple[str, str | None]] = []
-        for p in prof["locations"]["preferred"]:
-            if p.lower().startswith("remote"):
-                country = re.sub(r"^remote[\s\-–:,/()]*", "", p, flags=re.I).strip() or "India"
-                locs.append((country, "remote"))
-            else:
-                locs.append((p, None))
-        queries = [{"keyword": t, "location": loc, "remote_filter": rf, "job_type": None, "experience_level": None, "sort_by": "recent"}
-                   for t in prof["target_titles"][:5] for loc, rf in locs[:3]]
-        return {"queries": queries[:12]}
+        locs: list[str] = []
+        for p in prof["locations"]["preferred"] or ["India"]:  # no preferred location: search India
+            loc = re.sub(r"^remote[\s\-–:,/()]*", "", p, flags=re.I).strip() or "India" if p.lower().startswith("remote") else p
+            if loc not in locs:
+                locs.append(loc)
+        # one search per title and location; full time, any workplace, any experience level, newest first
+        queries = [{"keyword": t, "location": loc, "remote_filter": None, "job_type": "full time", "experience_level": None, "sort_by": "recent"}
+                   for t in prof["target_titles"][:5] for loc in locs]
+        return {"queries": queries[:25]}
 
     def _require_name() -> None:
         try:

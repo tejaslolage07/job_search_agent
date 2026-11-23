@@ -396,16 +396,21 @@ async function viewCompanies() {
 }
 
 // ---------- DISCOVER ----------
-const LI_DEFAULT = () => ({ keyword: "", location: "India", job_type: null, remote_filter: null, experience_level: null, sort_by: "recent" });
+const LI_DEFAULT = () => ({ keyword: "", location: "India", job_type: "full time", remote_filter: null, experience_level: null, sort_by: "recent" });
 let liQueries = JSON.parse(localStorage.getItem("liQueries") || "null") || [LI_DEFAULT()];
+// The searches follow the profile (titles x locations) until the user edits them by hand; an older browser that saved real searches counts as edited.
+let liAuto = localStorage.getItem("liAuto") ? localStorage.getItem("liAuto") === "1" : !liQueries.some((q) => q.keyword.trim());
+const setAuto = (on) => { liAuto = on; localStorage.setItem("liAuto", on ? "1" : "0"); };
 let liSettings = JSON.parse(localStorage.getItem("liSettings") || "null") || { window: "24hr", max_listings: 100, workers: 2 };
 if (liSettings.workers > 6) liSettings.workers = 6; // 8, 10 and 12 were removed; a browser that saved one falls back to the maximum
 async function viewDiscover() {
   await refreshState(); const main = $("#main"), st = appState;
-  const src = JSON.parse(localStorage.getItem("sources") || "null") || { ats: true, linkedin: false, match: true };
+  const src = { ats: true, linkedin: true, match: true }; // all three start ticked
+  if (liAuto) { try { const d = await api("/api/linkedin/defaults"); if (d.queries.length) liQueries = d.queries; } catch { /* keep what is there */ } }
   const chk = (id, v, label, dis) => h("div", { class: "chk" }, h("input", { type: "checkbox", id, checked: v, disabled: dis }), h("label", { for: id }, label));
   const opt = (arr, v) => arr.map((o) => h("option", { value: o[0] ?? "", selected: (o[0] ?? "") === (v ?? "") }, o[1]));
   const liBox = h("div", { class: "card" });
+  for (const ev of ["input", "change"]) liBox.addEventListener(ev, (e) => { if (e.target.closest("table")) setAuto(false); });
   const drawLi = () => {
     const l = st.linkedin;
     liBox.replaceChildren(h("h2", {}, "LinkedIn search"),
@@ -419,9 +424,9 @@ async function viewDiscover() {
           h("td", {}, h("select", { onchange: (e) => (q.remote_filter = e.target.value || null) }, opt([["", "any"], ["on site", "on site"], ["remote", "remote"], ["hybrid", "hybrid"]], q.remote_filter))),
           h("td", {}, h("select", { onchange: (e) => (q.experience_level = e.target.value || null) }, opt([["", "any"], ["internship", "internship"], ["entry level", "entry level"], ["associate", "associate"], ["senior", "senior"], ["director", "director"], ["executive", "executive"]], q.experience_level))),
           h("td", {}, h("select", { onchange: (e) => (q.sort_by = e.target.value) }, opt([["recent", "newest"], ["relevant", "most relevant"]], q.sort_by))),
-          h("td", {}, h("button", { class: "btn sm danger", onclick: () => { liQueries.splice(i, 1); if (!liQueries.length) liQueries.push(LI_DEFAULT()); drawLi(); } }, "✕"))))))),
-      h("div", { class: "row", style: "margin-top:8px" }, h("button", { class: "btn sm", onclick: () => { liQueries.push(LI_DEFAULT()); drawLi(); } }, "+ Add search"),
-        h("button", { class: "btn sm", onclick: async () => { const d = await api("/api/linkedin/defaults"); if (!d.queries.length) return toast("Save your profile first – suggestions come from it", true); liQueries = d.queries; drawLi(); } }, "Fill from my profile")),
+          h("td", {}, h("button", { class: "btn sm danger", onclick: () => { setAuto(false); liQueries.splice(i, 1); if (!liQueries.length) liQueries.push(LI_DEFAULT()); drawLi(); } }, "✕"))))))),
+      h("div", { class: "row", style: "margin-top:8px" }, h("button", { class: "btn sm", onclick: () => { setAuto(false); liQueries.push(LI_DEFAULT()); drawLi(); } }, "+ Add search"),
+        h("button", { class: "btn sm", onclick: async () => { const d = await api("/api/linkedin/defaults"); if (!d.queries.length) return toast("Save your profile first – suggestions come from it", true); liQueries = d.queries; setAuto(true); drawLi(); } }, "Fill from my profile")),
       h("h3", {}, "How much to fetch"),
       h("div", { class: "grid" },
         field("Posted within", h("select", { onchange: (e) => (liSettings.window = e.target.value) }, opt([["24hr", "last 24 hours"], ["past week", "past week"], ["past month", "past month"]], liSettings.window))),
@@ -435,7 +440,7 @@ async function viewDiscover() {
     linkedin: { enabled: $("#srcLi").checked, queries: liQueries.filter((q) => q.keyword.trim() && q.location.trim()), window: liSettings.window, max_listings: liSettings.max_listings, workers: liSettings.workers },
     match: $("#srcMatch").checked,
   });
-  const persist = () => { localStorage.setItem("liQueries", JSON.stringify(liQueries)); localStorage.setItem("liSettings", JSON.stringify(liSettings)); localStorage.setItem("sources", JSON.stringify({ ats: $("#srcAts").checked, linkedin: $("#srcLi").checked, match: $("#srcMatch").checked })); };
+  const persist = () => { localStorage.setItem("liQueries", JSON.stringify(liQueries)); localStorage.setItem("liSettings", JSON.stringify(liSettings)); };
   const needName = !(st.candidate_name || "").trim(); // discovery stays locked until the profile has the candidate's name
   const startBox = h("div", { class: "card" }, h("h2", {}, "Start discovery"),
     needName ? h("div", { class: "banner" }, "Please update your profile before the job matcher can match jobs. ", h("a", { href: "#", onclick: (e) => { e.preventDefault(); showTab("Profile"); } }, "Open Profile →")) : null,
