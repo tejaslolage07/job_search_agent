@@ -257,7 +257,7 @@ async function viewProfile() {
       field("Years of experience", I("years_experience", p.years_experience, "number"), "years_experience"),
       field("Max years a posting may require (blank = experience + 2)", I("max_required_years", p.max_required_years, "number"), "max_required_years"),
       field("Notice period (days)", I("notice_period_days", p.notice_period_days, "number"), "notice_period_days"),
-      field("Work authorization", I("work_authorization", p.work_authorization), "work_authorization")),
+      field("Work authorization", h("select", { "data-f": "work_authorization" }, h("option", { value: "Indian citizen", selected: true }, "Indian citizen")), "work_authorization")),
       h("div", { class: "small muted" }, "Your current and expected pay are sent to the AI together with the rest of the profile, so it can judge a job's posted pay. Notice period and work authorization are stored only and never sent.")),
     h("div", { class: "card" }, h("h2", {}, "Where & what"),
       h("div", { class: "grid" },
@@ -409,10 +409,11 @@ async function viewDiscover() {
     match: $("#srcMatch").checked,
   });
   const persist = () => { localStorage.setItem("liQueries", JSON.stringify(liQueries)); localStorage.setItem("liSettings", JSON.stringify(liSettings)); localStorage.setItem("sources", JSON.stringify({ ats: $("#srcAts").checked, linkedin: $("#srcLi").checked, match: $("#srcMatch").checked })); };
+  const needName = !(st.candidate_name || "").trim(); // discovery stays locked until the profile has the candidate's name
   const startBox = h("div", { class: "card" }, h("h2", {}, "Start discovery"),
-    !st.profile_exists ? h("div", { class: "banner" }, "You haven't saved a profile yet. Discovery will still collect jobs, but matching needs your profile (Profile tab).") : null,
+    needName ? h("div", { class: "banner" }, "Please update your profile before the job matcher can match jobs. ", h("a", { href: "#", onclick: (e) => { e.preventDefault(); showTab("Profile"); } }, "Open Profile →")) : null,
     chk("srcAts", src.ats, "Company career pages I've enabled (Companies tab)"), liToggle, chk("srcMatch", src.match, "Match the jobs with AI afterwards" + (st.openai_key_set ? "" : " (needs OPENAI_API_KEY in .env – see Profile tab)")),
-    h("div", { class: "row", style: "margin-top:10px" }, h("button", { class: "btn primary", id: "go", disabled: st.busy }, st.busy ? "A run is in progress…" : "Start now"), h("span", { id: "goMsg", class: "small err" })));
+    h("div", { class: "row", style: "margin-top:10px" }, h("button", { class: "btn primary", id: "go", disabled: st.busy || needName, title: needName ? "Save your name in Profile first" : "" }, st.busy ? "A run is in progress…" : "Start now"), h("span", { id: "goMsg", class: "small err" })));
   main.replaceChildren(startBox, liBox, sched);
   drawLi();
   const toggleLi = () => liBox.classList.toggle("hidden", !$("#srcLi").checked); $("#srcLi").onchange = toggleLi; toggleLi();
@@ -433,7 +434,7 @@ async function viewDiscover() {
   };
   sched.replaceChildren(h("h2", {}, "Schedules"), h("div", { class: "small muted" }, "Repeat the discovery settings above automatically while this app is running. The shortest allowed interval is 2 hours. Runs never overlap: a due schedule waits for the current run to finish."),
     schedList, h("div", { class: "row", style: "margin-top:10px" }, field("Name", h("input", { id: "sName", placeholder: "e.g. Morning sweep" })),
-      field("Repeat", h("select", { id: "sFreq" }, FREQ.map(([v, t]) => h("option", { value: v, selected: v === 1440 }, t)))), h("button", { class: "btn", id: "sAdd" }, "Save current settings as schedule"), h("span", { id: "sMsg", class: "small err" })));
+      field("Repeat", h("select", { id: "sFreq" }, FREQ.map(([v, t]) => h("option", { value: v, selected: v === 1440 }, t)))), h("button", { class: "btn", id: "sAdd", disabled: needName, title: needName ? "Save your name in Profile first" : "" }, "Save current settings as schedule"), h("span", { id: "sMsg", class: "small err" })));
   $("#sAdd").onclick = async () => {
     persist(); const msg = $("#sMsg"); msg.textContent = "";
     try { await api("/api/schedules", { method: "POST", json: { name: $("#sName").value.trim() || "Scheduled discovery", interval_minutes: +$("#sFreq").value, enabled: true, config: config() } }); $("#sName").value = ""; toast("Schedule saved"); drawSched(); }

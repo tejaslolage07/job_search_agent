@@ -259,8 +259,17 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
                    for t in prof["target_titles"][:5] for loc, rf in locs[:3]]
         return {"queries": queries[:12]}
 
+    def _require_name() -> None:
+        try:
+            name = (service.read_profile(home) or {}).get("name")
+        except Exception:  # an invalid profile.yaml is reported on the Profile page
+            name = None
+        if not (name or "").strip():
+            raise HTTPException(422, "Please update your profile (add your name) before the job matcher can match jobs.")
+
     @app.post("/api/runs")
     def start_run(config: DiscoverConfig) -> dict[str, Any]:
+        _require_name()
         try:
             run_id = ctl.start(config)
         except ValueError as exc:
@@ -367,6 +376,7 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
 
     @app.post("/api/schedules")
     def create_schedule(s: ScheduleIn) -> dict[str, Any]:
+        _require_name()
         try:
             s.config.validate_runnable()
         except ValueError as exc:

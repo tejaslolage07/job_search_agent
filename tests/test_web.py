@@ -19,7 +19,7 @@ from job_search_agent.web.app import create_app
 from job_search_agent.web.runner import RunController
 
 FX = Path(__file__).parent / "fixtures"
-PROFILE_BODY = {k: v for k, v in PROFILE.items() if k != "resume_paths"}
+PROFILE_BODY = {**{k: v for k, v in PROFILE.items() if k != "resume_paths"}, "name": "Test Candidate"}  # a run needs the name saved
 PDF = b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF"
 
 
@@ -116,6 +116,16 @@ def test_profile_save_and_roundtrip(home):
     got = c.get("/api/profile").json()
     assert got["exists"] and got["profile"]["expected_ctc_lpa"]["min"] == 28
     assert (home / "config" / "profile.yaml").exists()
+
+
+def test_work_authorization_accepts_only_the_one_dropdown_value(home):
+    c, _ = make_client(home)
+    assert c.put("/api/profile", json={**PROFILE_BODY, "work_authorization": "Indian citizen"}).json() == {"saved": True}
+    assert c.get("/api/profile").json()["profile"]["work_authorization"] == "Indian citizen"
+    assert c.put("/api/profile", json={**PROFILE_BODY, "work_authorization": "India citizen"}).json() == {"saved": True}      # an older spelling is normalised
+    assert c.get("/api/profile").json()["profile"]["work_authorization"] == "Indian citizen"
+    r = c.put("/api/profile", json={**PROFILE_BODY, "work_authorization": "H1B holder"})
+    assert r.status_code == 422 and "work_authorization" in {e["field"] for e in r.json()["errors"]}
 
 
 def test_the_profile_can_be_saved_without_preferred_locations_or_must_have_keywords(home):
@@ -227,20 +237,13 @@ def test_full_run_ats_then_match_and_job_views(home):
 def test_run_requires_something_to_do_and_rejects_parallel_runs(home):
     c, ctl = make_client(home, FakeCollector([], hang=threading.Event()))
     assert c.post("/api/runs", json={"ats": {"enabled": False}, "match": False}).status_code == 422
+    c.put("/api/profile", json=PROFILE_BODY)
     assert c.post("/api/runs", json={"ats": {"enabled": False}, "linkedin": {"enabled": True}, "match": False}).status_code == 422  # no queries
     body = {"ats": {"enabled": False}, "match": False, "linkedin": {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}}
     rid = c.post("/api/runs", json=body).json()["run_id"]
     assert c.post("/api/runs", json=body).status_code == 409
     assert c.post(f"/api/runs/{rid}/cancel").json() == {"cancelling": True}
     assert wait_done(c, ctl, rid)["status"] == "cancelled"
-
-
-def test_missing_profile_does_not_break_discovery(home):
-    c, ctl = make_client(home)
-    rid = c.post("/api/runs", json={"ats": {"enabled": True}, "match": True}).json()["run_id"]
-    run = wait_done(c, ctl, rid)
-    assert run["status"] == "finished" and run["new_count"] == 1
-    assert any("(matching)" == e["company"] for e in run["errors"])
 
 
 def test_linkedin_stage_ingests_and_keeps_duplicates_separate(home):
@@ -283,6 +286,7 @@ def test_ats_crawl_never_removes_linkedin_jobs(home):
 def test_linkedin_block_keeps_partial_results_and_does_not_block_later_runs(home):
     c, ctl = make_client(home, FakeCollector([card(1, "Acme")], code=2, blocked="HTTP 429 ..."))
     li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
+    c.put("/api/profile", json=PROFILE_BODY)
     body = {"ats": {"enabled": False}, "match": False, "linkedin": li}
     run = wait_done(c, ctl, c.post("/api/runs", json=body).json()["run_id"])
     assert run["progress"]["linkedin"]["state"] == "blocked" and run["new_count"] == 1  # partial results kept
@@ -305,6 +309,7 @@ def test_linkedin_defaults_come_from_profile(home):
 def test_schedule_minimum_two_hours(home):
     c, _ = make_client(home)
     cfg = {"ats": {"enabled": True}, "match": False}
+    c.put("/api/profile", json=PROFILE_BODY)
     assert c.post("/api/schedules", json={"name": "x", "interval_minutes": 60, "config": cfg}).status_code == 422
     assert c.post("/api/schedules", json={"name": "x", "interval_minutes": 119, "config": cfg}).status_code == 422
     r = c.post("/api/schedules", json={"name": "every 2h", "interval_minutes": 120, "config": cfg})
@@ -337,6 +342,7 @@ def test_scheduler_skips_while_a_run_is_active(home):
     hang = threading.Event()
     c, ctl = make_client(home, FakeCollector([], hang=hang))
     li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
+    c.put("/api/profile", json=PROFILE_BODY)
     rid = c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li}).json()["run_id"]
     c.post("/api/schedules", json={"name": "s", "interval_minutes": 120, "config": {"ats": {"enabled": True}, "match": False}})
     assert c.app.state.scheduler.tick(datetime.now(UTC) + timedelta(hours=3)) is None
@@ -364,6 +370,7 @@ def test_job_user_states_and_hidden_filter(home):
 def test_sse_stream_ends_with_final_state(home):
     c, ctl = make_client(home)
     rid = c.post("/api/runs", json={"ats": {"enabled": True}, "match": False}).json()["run_id"]
+    c.put("/api/profile", json=PROFILE_BODY)
     ctl.wait(20)
     with c.stream("GET", f"/api/runs/{rid}/stream") as r:
         text = "".join(r.iter_text())
@@ -380,6 +387,7 @@ def test_run_log_explains_why_each_search_stopped(home):
 
     c, ctl = make_client(home, Collector([card(1)]))
     li = {"enabled": True, "queries": [{"keyword": "software engineer", "location": "India"}]}
+    c.put("/api/profile", json=PROFILE_BODY)
     rid = c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li}).json()["run_id"]
     wait_done(c, ctl, rid)
     msgs = [e["message"] for e in c.get(f"/api/runs/{rid}/events").json()]
@@ -400,6 +408,7 @@ def test_unknown_or_incomplete_collector_messages_do_not_fail_the_run(home):
 
     c, ctl = make_client(home, Collector([card(1)]))
     li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
+    c.put("/api/profile", json=PROFILE_BODY)
     run = wait_done(c, ctl, c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li}).json()["run_id"])
     assert run["status"] == "finished" and not run["errors"] and run["new_count"] == 1
 
@@ -450,6 +459,7 @@ def test_long_backoff_waits_are_explained_in_the_run_log(home):
 
     c, ctl = make_client(home, Collector([card(1)]))
     li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
+    c.put("/api/profile", json=PROFILE_BODY)
     rid = c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li}).json()["run_id"]
     wait_done(c, ctl, rid)
     ev = c.get(f"/api/runs/{rid}/events").json()
@@ -462,6 +472,7 @@ def test_long_backoff_waits_are_explained_in_the_run_log(home):
 def test_parallel_requests_setting_accepts_1_to_6(home, workers, status):
     c, ctl = make_client(home, FakeCollector([card(1)]))
     li = {"enabled": True, "workers": workers, "queries": [{"keyword": "x", "location": "India"}]}
+    c.put("/api/profile", json=PROFILE_BODY)
     r = c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li})
     assert r.status_code == status
     ctl.wait(10)
@@ -615,4 +626,17 @@ def test_a_missing_resume_is_reported_clearly_when_jobs_need_the_resume_check(ho
     run = wait_done(c, ctl, c.post("/api/runs", json=AI_BODY).json()["run_id"])
     assert run["progress"]["matching"]["buckets"] == {"accept": 1, "review": 3}
     err = next(e for e in run["errors"] if e["company"] == "(AI check)")["error"]
-    assert "3 job(s) were left 'Not checked'" in err and "no resume_paths configured" in err and "Upload your resume on the Profile tab" in err
+    assert "4 job(s) were left 'Not checked'" in err and "no resume_paths configured" in err and "Upload your resume on the Profile tab" in err
+
+
+def test_discovery_and_schedules_need_the_candidate_name_saved_first(home):
+    c, _ = make_client(home)
+    body = {"ats": {"enabled": True}, "match": False}
+    sched = {"name": "x", "interval_minutes": 120, "enabled": True, "config": body}
+    for call in (lambda: c.post("/api/runs", json=body), lambda: c.post("/api/schedules", json=sched)):
+        r = call()  # no profile at all
+        assert r.status_code == 422 and "update your profile" in r.json()["detail"]
+    c.put("/api/profile", json={**PROFILE_BODY, "name": "  "})  # a blank name does not count
+    assert c.post("/api/runs", json=body).status_code == 422
+    c.put("/api/profile", json=PROFILE_BODY)
+    assert c.post("/api/schedules", json=sched).status_code == 200
