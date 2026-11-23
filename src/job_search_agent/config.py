@@ -82,7 +82,7 @@ class Profile(BaseModel):
             f"Target titles: {', '.join(self.target_titles)}",
             f"Seniority wanted: {self.seniority.min_level} to {self.seniority.max_level}",
             f"Titles to avoid: {', '.join(self.seniority.reject_titles) or 'none'}",
-            f"Max years of experience the job may ask for: {self.max_years:g}",
+            f"Max years of experience the job may ask for: {f'{self.max_years:g}' if self.max_years is not None else 'no limit'}",
             f"Preferred locations: {', '.join(loc.preferred)}" if loc.preferred else "Preferred locations: none listed (no location preference: any location is acceptable)",
             f"Hybrid roles acceptable: {'yes' if loc.accept_hybrid else 'no'}",
             f"Onsite or remote roles outside the preferred locations acceptable: {'yes' if loc.accept_onsite_outside_preferred else 'no'}" if loc.preferred else "",
@@ -97,8 +97,9 @@ class Profile(BaseModel):
         return "\n".join(line for line in lines if line)
 
     @property
-    def max_years(self) -> float:
-        return self.max_required_years if self.max_required_years is not None else self.years_experience + 2
+    def max_years(self) -> float | None:
+        """The most years a posting may ask for; None (left blank) means there is no limit."""
+        return self.max_required_years
 
     def matching_hash(self) -> str:
         """Changes exactly when the profile text the AI sees changes."""

@@ -19,7 +19,7 @@ seniority:
   max_level: mid
   reject_titles: [intern, principal, staff, director, vp, head, manager]   # whole-word title match
 
-max_required_years: 4            # optional; defaults to years_experience + 2
+max_required_years: 4            # optional; leave out for no limit
 
 must_have_keywords: [Python, Django, FastAPI]
 nice_to_have_keywords: [LLM, OCR, Kubernetes, Docker, PostgreSQL]

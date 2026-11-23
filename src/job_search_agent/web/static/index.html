@@ -238,14 +238,36 @@ function closeDrawer() { $("#drawer").classList.add("hidden"); }
 async function viewProfile() {
   const main = $("#main"); main.replaceChildren(...skel(3, 120));
   const data = await api("/api/profile"); const p = data.profile || {
-    current_ctc_lpa: "", expected_ctc_lpa: { min: "", target: "" }, usd_to_inr: 88, years_experience: "", locations: { preferred: ["Bengaluru", "Remote-India"], accept_hybrid: true, accept_onsite_outside_preferred: false },
+    current_ctc_lpa: "", expected_ctc_lpa: { min: "", target: "" }, usd_to_inr: 88, years_experience: "", locations: { preferred: ["Bengaluru"], accept_hybrid: true, accept_onsite_outside_preferred: true },
     target_titles: ["Software Engineer", "Backend Engineer"], seniority: { min_level: "junior", max_level: "mid", reject_titles: ["intern", "principal", "staff", "director", "vp", "head", "manager"] },
     max_required_years: null, must_have_keywords: ["Python"], nice_to_have_keywords: [], exclude_keywords: [], exclude_companies: [], notice_period_days: null, work_authorization: "" };
   const levels = ["intern", "junior", "mid", "senior", "staff", "principal", "director"];
-  const I = (name, v, type = "text", extra = {}) => h("input", { type, "data-f": name, value: v ?? "", step: type === "number" ? "any" : null, ...extra });
+  // Number fields take digits only (and one decimal point, except whole-number fields): anything else is dropped as it is typed or pasted.
+  const I = (name, v, type = "text", extra = {}) => type !== "number" ? h("input", { type, "data-f": name, value: v ?? "", ...extra }) :
+    h("input", { type: "text", inputmode: extra.int ? "numeric" : "decimal", autocomplete: "off", "data-f": name, value: v ?? "", oninput: (e) => { const t = e.target, pos = t.selectionStart; let x = t.value.replace(extra.int ? /\D/g : /[^\d.]/g, ""); if (!extra.int) { const i = x.indexOf("."); if (i >= 0) x = x.slice(0, i + 1) + x.slice(i + 1).replace(/\./g, ""); } if (x !== t.value) { t.value = x; t.setSelectionRange(Math.max(0, pos - 1), Math.max(0, pos - 1)); } } });
   const T = (name, arr) => h("input", { type: "text", "data-f": name, value: (arr || []).join(", "), placeholder: "comma, separated" });
   const sel = (name, opts, v) => h("select", { "data-f": name }, opts.map((o) => h("option", { value: o, selected: o === v }, o)));
   const chk = (name, v, label) => h("div", { class: "chk" }, h("input", { type: "checkbox", "data-f": name, checked: v, id: "c_" + name }), h("label", { for: "c_" + name }, label));
+  // Multi-select dropdown. The hidden input (data-f) holds the picked values as "a, b, c", so collect() reads it like the text fields. Saved values missing from the list stay selectable.
+  const multi = (name, options, picked, ph) => {
+    const opts = [...options, ...(picked || []).filter((x) => !options.some((o) => o.toLowerCase() === x.toLowerCase()))], on = new Set(picked || []);
+    const out = h("input", { type: "hidden", "data-f": name }), label = h("span"), btn = h("button", { type: "button", class: "dd-btn", "aria-haspopup": "listbox" }, label, icon("M6 9l6 6 6-6")), wrap = h("div", { class: "dd" }, btn);
+    const sync = () => { const v = opts.filter((o) => on.has(o)); out.value = v.join(", "); label.textContent = v.length ? (v.length > 2 ? `${v.slice(0, 2).join(", ")} +${v.length - 2}` : v.join(", ")) : ph; label.style.color = v.length ? "" : "var(--muted)"; };
+    sync();
+    btn.addEventListener("click", () => {
+      if (ddOpen && ddOpen.wrap === wrap) return ddClose(); ddClose();
+      const items = opts.map((o) => { const it = h("div", { class: "dd-item", role: "option", onmousedown: (e) => { e.preventDefault(); on.has(o) ? on.delete(o) : on.add(o); draw(); sync(); } }); it._o = o; return it; });
+      const draw = () => items.forEach((it) => { it.classList.toggle("sel", on.has(it._o)); it.replaceChildren(h("span", {}, it._o), ...(on.has(it._o) ? [icon("M5 12l5 5L20 7")] : [])); });
+      const menu = h("div", { class: "dd-menu", role: "listbox", "aria-multiselectable": "true" }, ...items); draw(); document.body.append(menu); wrap.classList.add("open");
+      const r = btn.getBoundingClientRect(), mh = Math.min(menu.scrollHeight, 280), below = innerHeight - r.bottom - 12;
+      menu.style.minWidth = r.width + "px"; menu.style.left = Math.min(r.left, innerWidth - menu.offsetWidth - 8) + "px";
+      menu.style.top = (below >= mh || below >= r.top ? r.bottom + 6 : r.top - mh - 6) + "px";
+      ddOpen = { menu, wrap, mark() {}, pick() {}, act: 0, n: 0 };
+    });
+    btn.addEventListener("keydown", (e) => { if (e.key === "Escape") ddClose(); });
+    return h("div", {}, out, wrap);
+  };
+  const CITIES = ["Bengaluru", "Hyderabad", "Mumbai", "Pune", "Delhi"], REJECT = ["intern", "trainee", "senior", "lead", "staff", "principal", "architect", "manager", "director", "vp", "head"];
   const form = h("div", {},
     data.invalid ? h("div", { class: "banner" }, "Your saved profile.yaml has problems: " + data.invalid) : null,
     h("div", { class: "card" }, h("h2", {}, "Compensation & experience"), h("div", { class: "grid" },
@@ -255,17 +277,17 @@ async function viewProfile() {
       field("Expected CTC – target (LPA)", I("expected_ctc_lpa.target", p.expected_ctc_lpa.target, "number"), "expected_ctc_lpa.target"),
       field("USD → INR rate (only for USD postings)", I("usd_to_inr", p.usd_to_inr, "number"), "usd_to_inr"),
       field("Years of experience", I("years_experience", p.years_experience, "number"), "years_experience"),
-      field("Max years a posting may require (blank = experience + 2)", I("max_required_years", p.max_required_years, "number"), "max_required_years"),
-      field("Notice period (days)", I("notice_period_days", p.notice_period_days, "number"), "notice_period_days"),
+      field("Max years a posting may require (blank = no limit)", I("max_required_years", p.max_required_years, "number"), "max_required_years"),
+      field("Notice period (days)", I("notice_period_days", p.notice_period_days, "number", { int: true }), "notice_period_days"),
       field("Work authorization", h("select", { "data-f": "work_authorization" }, h("option", { value: "Indian citizen", selected: true }, "Indian citizen")), "work_authorization")),
       h("div", { class: "small muted" }, "Your current and expected pay are sent to the AI together with the rest of the profile, so it can judge a job's posted pay. Notice period and work authorization are stored only and never sent.")),
     h("div", { class: "card" }, h("h2", {}, "Where & what"),
       h("div", { class: "grid" },
-        field("Preferred locations (optional: cities, countries or Remote-<Country>; blank = anywhere)", T("locations.preferred", p.locations.preferred), "locations.preferred"),
+        field("Preferred locations (blank = anywhere)", multi("locations.preferred", CITIES, p.locations.preferred, "Anywhere"), "locations.preferred"),
         field("Target job titles", T("target_titles", p.target_titles), "target_titles"),
         field("Seniority – lowest", sel("seniority.min_level", levels, p.seniority.min_level), "seniority.min_level"),
         field("Seniority – highest", sel("seniority.max_level", levels, p.seniority.max_level), "seniority.max_level"),
-        field("Reject titles containing", T("seniority.reject_titles", p.seniority.reject_titles), "seniority.reject_titles")),
+        field("Reject titles containing", multi("seniority.reject_titles", REJECT, p.seniority.reject_titles, "None"), "seniority.reject_titles")),
       chk("locations.accept_hybrid", p.locations.accept_hybrid, "Hybrid roles are acceptable"),
       chk("locations.accept_onsite_outside_preferred", p.locations.accept_onsite_outside_preferred, "Roles outside my preferred locations are acceptable")),
     h("div", { class: "card" }, h("h2", {}, "Keywords"), h("div", { class: "grid" },
