@@ -114,7 +114,7 @@ class LLMCfg(BaseModel):
     timeout_seconds: float = 120
     concurrency: int = Field(8, ge=1, le=16)   # AI calls running at once
     max_jd_chars: int = 6000
-    max_resume_chars: int = 6000
+    max_resume_chars: int | None = 50000   # safety ceiling only (about 12 pages of text): a normal resume is never cut. null = no limit at all
     prompt_file: str = "llm_prompt.md"            # phase 1 (profile), inside config/
     resume_prompt_file: str = "llm_prompt_resume.md"  # phase 2 (resume, only for phase-1 "ambiguous")
     base_url: str = ""

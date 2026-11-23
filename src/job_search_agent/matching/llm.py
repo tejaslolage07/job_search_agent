@@ -133,7 +133,7 @@ def user_parts(template: str, cfg: LLMCfg, title: str, company: str, location: s
     """The user message, filled in (job text cut to its configured length), as [shared start, per-job text] when the template has {{cache_here}}, else [whole text]."""
     clean = lambda t: t.replace(CACHE_MARK, "")  # noqa: E731 - text from a job or resume can never fake the marker
     text = render(template, cache_here=CACHE_MARK, job_title=clean(title), company=clean(company), location=clean(location or "not stated"),
-                  job_description=clean(description[: cfg.max_jd_chars]), salary=clean(salary or "not stated"), profile=clean(profile), resume=clean(resume[: cfg.max_resume_chars]))
+                  job_description=clean(description[: cfg.max_jd_chars]), salary=clean(salary or "not stated"), profile=clean(profile), resume=clean(resume[: cfg.max_resume_chars] if cfg.max_resume_chars else resume))
     return text.split(CACHE_MARK, 1) if CACHE_MARK in text else [text]
 
 

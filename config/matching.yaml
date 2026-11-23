@@ -10,7 +10,7 @@ llm:
   timeout_seconds: 120
   concurrency: 8           # AI calls running at once
   max_jd_chars: 6000
-  max_resume_chars: 6000
+  max_resume_chars: 50000   # a safety ceiling, not a trimming rule: no normal resume reaches it (about 12 pages). Guards against a wrong, huge file being sent on every call. null = no limit
   cache: explicit          # explicit = only the shared start of each prompt (instructions + profile / resume) is cached; implicit = OpenAI caches every whole prompt (costs more)
   cache_ttl: 30m
   prompt_file: llm_prompt.md                 # in config/: phase 1 instructions

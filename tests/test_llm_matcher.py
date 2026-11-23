@@ -458,3 +458,19 @@ def test_changing_either_phases_effort_changes_the_fingerprint_so_verdicts_are_r
     p1, _ = make_judge(profile, mcfg.model_copy(update={"llm": mcfg.llm.model_copy(update={"reasoning_effort": "low"})}))
     p2, _ = make_judge(profile, mcfg.model_copy(update={"llm": mcfg.llm.model_copy(update={"resume_reasoning_effort": "high"})}))
     assert len({base.fingerprint, p1.fingerprint, p2.fingerprint}) == 3
+
+
+def test_a_normal_resume_is_never_cut_the_ceiling_is_only_a_safety_net_and_null_means_no_limit(profile, mcfg):
+    assert mcfg.llm.max_resume_chars == 50000
+    long_resume = "SKILL " * 5000 + "THE-LAST-LINE"                    # 30,000 characters: far beyond a real resume's cut-off in the old 6,000 / 10,000 settings
+    judge, fake = make_judge(profile, mcfg)
+    judge.judge_resume("T", "C", "L", "Python", long_resume)
+    assert "THE-LAST-LINE" in json.dumps(fake.requests[0]["raw_body"])                    # all of it was sent
+    ceiling = mcfg.model_copy(update={"llm": mcfg.llm.model_copy(update={"max_resume_chars": 1000})})
+    judge2, fake2 = make_judge(profile, ceiling)
+    judge2.judge_resume("T", "C", "L", "Python", long_resume)
+    assert "THE-LAST-LINE" not in json.dumps(fake2.requests[0]["raw_body"])               # a ceiling still cuts what is above it
+    unlimited = mcfg.model_copy(update={"llm": mcfg.llm.model_copy(update={"max_resume_chars": None})})
+    judge3, fake3 = make_judge(profile, unlimited)
+    judge3.judge_resume("T", "C", "L", "Python", "X" * 200000 + "THE-END")
+    assert "THE-END" in json.dumps(fake3.requests[0]["raw_body"])                         # null: no limit at all
