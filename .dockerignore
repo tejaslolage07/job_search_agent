@@ -1,0 +1,16 @@
+.git
+.venv
+.pytest_cache
+__pycache__
+*.egg-info
+data
+.env
+.env.*
+*.xlsx
+*.bak
+temp.txt
+tests
+scripts
+llm_test_kit
+PROJECT_DOCUMENTATION.html
+config/profile.yaml
