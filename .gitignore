@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.DS_Store
+# runtime data lives in /data (the database, uploaded resumes, collection logs). Anchored: src/job_search_agent/data/ holds package data that must be committed
+/data/
+# personal: your profile (pay figures) and the OpenAI key never go to git
+config/profile.yaml
+.env
+.env.*
+!.env.example
+*.bak
+temp.txt
+# third-party spreadsheets you were given (the derived config/india_companies.csv is committed)
+*.xlsx

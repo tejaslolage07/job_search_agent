@@ -1,0 +1,18 @@
+# Settings for run_test.py: only what is specific to the test. Every value can be overridden on the command line (see README.md).
+#
+# NOT here, because the kit tests the real matcher and must use the same things it does:
+#   * the prompts               -> config/llm_prompt.md (phase 1) and config/llm_prompt_resume.md (phase 2)
+#   * model, reasoning effort, retries, timeout, text limits -> the `llm:` section of config/matching.yaml (OPENAI_MODEL in .env overrides the model)
+#   * the API key               -> OPENAI_API_KEY in .env
+concurrency: 8           # API calls running at the same time during the test
+
+pricing:                 # optional: fill in YOUR model's prices (USD per million tokens) to see an estimated cost. None are built in because prices change
+  input_per_million: null
+  output_per_million: null
+
+sample:                  # which of YOUR collected jobs to test on
+  select: any           # any | accept | review | reject (the stored result of the job)
+  source: ""             # "" (all) | linkedin | ats
+  limit: 8               # how many jobs
+  seed: 1                # same seed = same sample every run; change it for a different sample
+  min_description_chars: 200

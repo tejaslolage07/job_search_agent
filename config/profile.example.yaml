@@ -1,0 +1,34 @@
+# Copy to config/profile.yaml (gitignored) and edit. Validated with pydantic on every run.
+
+current_ctc_lpa: 20            # your current CTC in lakhs per annum (sent to the AI in phase 1)
+expected_ctc_lpa:
+  min: 28                        # sent to the AI: jobs whose posted pay is clearly below this are a no match
+  target: 35                     # sent to the AI
+usd_to_inr: 88                   # sent to the AI to convert dollar salaries
+years_experience: 2
+
+locations:
+  preferred: [Bengaluru, Remote-India]   # city names, or "Remote-<Country>"; Bangalore == Bengaluru
+  accept_hybrid: true                    # hybrid roles acceptable
+  accept_onsite_outside_preferred: false # onsite/hybrid/remote-elsewhere roles outside preferred acceptable
+
+target_titles: [Forward Deployed Engineer, Backend Engineer, AI Engineer, Software Engineer]
+
+seniority:
+  min_level: junior              # intern | junior | mid | senior | staff | principal | director
+  max_level: mid
+  reject_titles: [intern, principal, staff, director, vp, head, manager]   # whole-word title match
+
+max_required_years: 4            # optional; defaults to years_experience + 2
+
+must_have_keywords: [Python, Django, FastAPI]
+nice_to_have_keywords: [LLM, OCR, Kubernetes, Docker, PostgreSQL]
+exclude_keywords: [security clearance, "clearance required"]
+exclude_companies: []
+
+notice_period_days: 30           # stored only; never sent to the AI
+work_authorization: India citizen  # stored only; never sent to the AI
+
+resume_paths:                    # variant name -> PDF (absolute, ~/..., or relative to config/). Only sent to the AI in phase 2 (when the profile details alone cannot decide a job).
+  backend: ~/Documents/resume_backend.pdf
+  fde: ~/Documents/resume_fde.pdf

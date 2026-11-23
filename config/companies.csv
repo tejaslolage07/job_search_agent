@@ -1,0 +1,8 @@
+company,careers_url,ats_type,board_token,tier,active,notes
+Anthropic,https://job-boards.greenhouse.io/anthropic,auto,,1,true,Placeholder - Greenhouse board; edit or replace
+Palantir,https://jobs.lever.co/palantir,auto,,1,true,Placeholder - Lever board
+Ashby,https://jobs.ashbyhq.com/ashby,auto,,2,true,Placeholder - Ashby board
+Example Workday Co,https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite,auto,,1,false,Placeholder - Workday; set active=true to crawl
+Example Custom Co,https://example.com/careers,custom,,3,false,Placeholder - custom site; add selectors in config/selectors.yaml
+Databricks,https://job-boards.greenhouse.io/databricks,auto,,1,true,Demo board - Greenhouse with many India roles
+Meesho,https://jobs.lever.co/meesho,auto,,2,true,Demo board - Lever with many Bengaluru roles

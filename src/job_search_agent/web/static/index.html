@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Search Agent</title>
+<style>
+  :root{--bg:#f6f7fa;--card:#fff;--fg:#1c2230;--muted:#667085;--line:#e3e6ee;--accent:#2457d6;--accent-fg:#fff;--ok:#127a4b;--warn:#a65b00;--bad:#b3261e;--chip:#eef1f7}
+  @media (prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c26;--fg:#e8ebf2;--muted:#9aa3b5;--line:#2a3142;--accent:#7aa2ff;--accent-fg:#0b1020;--ok:#4cc38a;--warn:#e0a24a;--bad:#ff8a80;--chip:#222839}}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  .bar{max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .brand{font-weight:700} nav{display:flex;gap:4px;flex-wrap:wrap}
+  nav button{background:none;border:0;padding:8px 12px;border-radius:8px;color:var(--muted);cursor:pointer;font:inherit}
+  nav button.on{background:var(--chip);color:var(--fg);font-weight:600}
+  .spacer{flex:1} .pill{font-size:.8rem;padding:2px 10px;border-radius:99px;background:var(--chip);color:var(--muted)}
+  .pill.run{background:var(--accent);color:var(--accent-fg)}
+  main{max-width:1200px;margin:0 auto;padding:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  h2{margin:.1em 0 .6em;font-size:1.15rem} h3{margin:1em 0 .4em;font-size:1rem}
+  .muted{color:var(--muted)} .small{font-size:.85rem}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  label{display:block;font-size:.85rem;color:var(--muted);margin-bottom:2px}
+  input,select,textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit}
+  input[type=checkbox]{width:auto} .chk{display:flex;gap:8px;align-items:center;font-size:.95rem;color:var(--fg);margin:4px 0}
+  .chk label{margin:0;color:var(--fg);font-size:.95rem}
+  button.btn{padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;font:inherit}
+  button.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)} button.btn:disabled{opacity:.5;cursor:not-allowed}
+  button.btn.danger{color:var(--bad)} button.btn.sm{padding:3px 9px;font-size:.85rem}
+  .err{color:var(--bad);font-size:.82rem;min-height:1em} .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+  table{width:100%;border-collapse:collapse;font-size:.9rem} th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;color:var(--muted)}
+  .tablewrap{overflow-x:auto}
+  .badge{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:99px;background:var(--chip);color:var(--muted);white-space:nowrap}
+  .badge.accept{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+  .badge.reject{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
+  .badge.review{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+  .bar-outer{height:8px;border-radius:99px;background:var(--chip);overflow:hidden} .bar-inner{height:100%;background:var(--accent);transition:width .4s}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .tabs button{padding:7px 14px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;font:inherit}
+  .tabs button.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end} .row>*{flex:0 1 auto}
+  .banner{padding:10px 14px;border-radius:10px;margin-bottom:12px;background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--fg);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
+  .log{background:var(--bg);border:1px solid var(--line);border-radius:8px;max-height:260px;overflow:auto;padding:8px;font:12px/1.5 ui-monospace,Menlo,monospace}
+  .log .error{color:var(--bad)} .log .warning{color:var(--warn)}
+  .drawer{position:fixed;top:0;right:0;bottom:0;width:min(640px,100%);background:var(--card);border-left:1px solid var(--line);padding:18px;overflow:auto;z-index:20;box-shadow:-8px 0 30px rgba(0,0,0,.15)}
+  pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;white-space:pre-wrap;font-size:.8rem}
+  a{color:var(--accent)} .hidden{display:none !important}
+  .reasons li{margin:2px 0} .reasons .reject{color:var(--bad)} .reasons .accept,.reasons .plus{color:var(--ok)} .reasons .minus{color:var(--warn)}
+  @media (max-width:640px){.bar{gap:8px}}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <span class="brand">Job Search Agent</span>
+  <nav id="nav"></nav><span class="spacer"></span>
+  <span id="chip" class="pill">idle</span>
+</div></header>
+<main id="main"></main>
+<footer id="foot" class="small muted" style="max-width:1200px;margin:0 auto;padding:0 16px 24px"></footer>
+<div id="drawer" class="drawer hidden"></div>
+
+<script>
+"use strict";
+// ---------- tiny helpers (everything is built with textContent: job text can never inject HTML) ----------
+// Element.replaceChildren would render null/false children as the text "null"/"false": skip them.
+const _replaceChildren = Element.prototype.replaceChildren;
+Element.prototype.replaceChildren = function (...kids) { return _replaceChildren.apply(this, kids.flat().filter((k) => k !== null && k !== undefined && k !== false)); };
+const $ = (s, r = document) => r.querySelector(s);
+// Every time shown on this page is Indian Standard Time (IST, UTC+05:30), whatever time zone the browser is set to.
+const IST_PARTS = { date: new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" }),
+  time: new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) };
+function ist(iso, what = "datetime") {
+  const d = new Date(iso); if (!iso || isNaN(d)) return iso || "—";
+  return what === "time" ? IST_PARTS.time.format(d) : `${IST_PARTS.date.format(d)}, ${IST_PARTS.time.format(d)} IST`;
+}
+function h(tag, attrs = {}, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "value") el.value = v;
+    else if (k === "checked") el.checked = !!v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  return el;
+}
+const safeUrl = (u) => { try { const p = new URL(u); return p.protocol === "http:" || p.protocol === "https:" ? p.href : null; } catch { return null; } };
+function extLink(url, text, cls) { const u = safeUrl(url); return u ? h("a", { href: u, target: "_blank", rel: "noopener noreferrer", class: cls }, text) : h("span", { class: "muted" }, "no link"); }
+async function api(path, opts = {}) {
+  const init = { method: opts.method || "GET", headers: {} };
+  if (opts.json !== undefined) { init.body = JSON.stringify(opts.json); init.headers["Content-Type"] = "application/json"; }
+  if (opts.form) init.body = opts.form;
+  const r = await fetch(path, init);
+  let data = null; try { data = await r.json(); } catch { /* empty */ }
+  if (!r.ok) { const e = new Error((data && (data.detail && (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)))) || `HTTP ${r.status}`); e.status = r.status; e.data = data; throw e; }
+  return data;
+}
+const csv = (s) => s.split(",").map((x) => x.trim()).filter(Boolean);
+const num = (s) => (s === "" || s === null ? null : Number(s));
+function toast(msg, bad) { const t = h("div", { class: "banner", style: "position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:50;max-width:90%" + (bad ? ";border-color:var(--bad)" : "") }, msg); document.body.append(t); setTimeout(() => t.remove(), bad ? 6000 : 2500); }
+function field(label, input, name) { return h("div", {}, h("label", {}, label), input, h("div", { class: "err", "data-err": name || "" })); }
+function setErrors(root, errors) {
+  root.querySelectorAll("[data-err]").forEach((e) => (e.textContent = ""));
+  const friendly = (m) => (/valid number|should be a valid/i.test(m) ? "Enter a number" : /field required/i.test(m) ? "This field is required" : m);
+  for (const err of errors || []) { const e = { ...err, message: friendly(err.message) }; const slot = root.querySelector(`[data-err="${e.field}"]`) || root.querySelector(`[data-err="${e.field.split(".")[0]}"]`); if (slot) slot.textContent = e.message; }
+}
+function bar(done, total) { const pct = total ? Math.min(100, Math.round((100 * done) / total)) : 0; return h("div", { class: "bar-outer" }, h("div", { class: "bar-inner", style: `width:${pct}%` })); }
+
+// ---------- app shell ----------
+const TABS = ["Jobs", "Discover", "Runs", "Companies", "Profile"];
+let tab = localStorage.getItem("tab") || "Jobs", appState = null, stream = null;
+function showTab(t) { tab = t; localStorage.setItem("tab", t); closeStream(); renderNav(); ({ Jobs: viewJobs, Discover: viewDiscover, Runs: viewRuns, Companies: viewCompanies, Profile: viewProfile })[t](); }
+function renderNav() { const n = $("#nav"); n.replaceChildren(...TABS.map((t) => h("button", { class: t === tab ? "on" : "", onclick: () => showTab(t) }, t))); }
+async function refreshState() {
+  try { appState = await api("/api/state"); } catch { return; }
+  $("#foot").textContent = "Data folder: " + appState.home;
+  const c = $("#chip"); c.textContent = appState.busy ? `running #${appState.current_run_id}` : "idle"; c.className = "pill" + (appState.busy ? " run" : "");
+}
+function closeStream() { if (stream) { stream.close(); stream = null; } }
+function closeDrawer() { $("#drawer").classList.add("hidden"); }
+
+// ---------- PROFILE ----------
+async function viewProfile() {
+  const main = $("#main"); main.replaceChildren(h("div", { class: "muted" }, "Loading…"));
+  const data = await api("/api/profile"); const p = data.profile || {
+    current_ctc_lpa: "", expected_ctc_lpa: { min: "", target: "" }, usd_to_inr: 88, years_experience: "", locations: { preferred: ["Bengaluru", "Remote-India"], accept_hybrid: true, accept_onsite_outside_preferred: false },
+    target_titles: ["Software Engineer", "Backend Engineer"], seniority: { min_level: "junior", max_level: "mid", reject_titles: ["intern", "principal", "staff", "director", "vp", "head", "manager"] },
+    max_required_years: null, must_have_keywords: ["Python"], nice_to_have_keywords: [], exclude_keywords: [], exclude_companies: [], notice_period_days: null, work_authorization: "" };
+  const levels = ["intern", "junior", "mid", "senior", "staff", "principal", "director"];
+  const I = (name, v, type = "text", extra = {}) => h("input", { type, "data-f": name, value: v ?? "", step: type === "number" ? "any" : null, ...extra });
+  const T = (name, arr) => h("input", { type: "text", "data-f": name, value: (arr || []).join(", "), placeholder: "comma, separated" });
+  const sel = (name, opts, v) => h("select", { "data-f": name }, opts.map((o) => h("option", { value: o, selected: o === v }, o)));
+  const chk = (name, v, label) => h("div", { class: "chk" }, h("input", { type: "checkbox", "data-f": name, checked: v, id: "c_" + name }), h("label", { for: "c_" + name }, label));
+  const form = h("div", {},
+    data.invalid ? h("div", { class: "banner" }, "Your saved profile.yaml has problems: " + data.invalid) : null,
+    h("div", { class: "card" }, h("h2", {}, "Compensation & experience"), h("div", { class: "grid" },
+      field("Current CTC (LPA)", I("current_ctc_lpa", p.current_ctc_lpa, "number"), "current_ctc_lpa"),
+      field("Expected CTC – minimum (LPA)", I("expected_ctc_lpa.min", p.expected_ctc_lpa.min, "number"), "expected_ctc_lpa.min"),
+      field("Expected CTC – target (LPA)", I("expected_ctc_lpa.target", p.expected_ctc_lpa.target, "number"), "expected_ctc_lpa.target"),
+      field("USD → INR rate (only for USD postings)", I("usd_to_inr", p.usd_to_inr, "number"), "usd_to_inr"),
+      field("Years of experience", I("years_experience", p.years_experience, "number"), "years_experience"),
+      field("Max years a posting may require (blank = experience + 2)", I("max_required_years", p.max_required_years, "number"), "max_required_years"),
+      field("Notice period (days)", I("notice_period_days", p.notice_period_days, "number"), "notice_period_days"),
+      field("Work authorization", I("work_authorization", p.work_authorization), "work_authorization")),
+      h("div", { class: "small muted" }, "Your current and expected pay are sent to the AI together with the rest of the profile, so it can judge a job's posted pay. Notice period and work authorization are stored only and never sent.")),
+    h("div", { class: "card" }, h("h2", {}, "Where & what"),
+      h("div", { class: "grid" },
+        field("Preferred locations (optional: cities, countries or Remote-<Country>; blank = anywhere)", T("locations.preferred", p.locations.preferred), "locations.preferred"),
+        field("Target job titles", T("target_titles", p.target_titles), "target_titles"),
+        field("Seniority – lowest", sel("seniority.min_level", levels, p.seniority.min_level), "seniority.min_level"),
+        field("Seniority – highest", sel("seniority.max_level", levels, p.seniority.max_level), "seniority.max_level"),
+        field("Reject titles containing", T("seniority.reject_titles", p.seniority.reject_titles), "seniority.reject_titles")),
+      chk("locations.accept_hybrid", p.locations.accept_hybrid, "Hybrid roles are acceptable"),
+      chk("locations.accept_onsite_outside_preferred", p.locations.accept_onsite_outside_preferred, "Roles outside my preferred locations are acceptable")),
+    h("div", { class: "card" }, h("h2", {}, "Keywords"), h("div", { class: "grid" },
+      field("Must-have keywords (optional)", T("must_have_keywords", p.must_have_keywords), "must_have_keywords"),
+      field("Nice-to-have keywords", T("nice_to_have_keywords", p.nice_to_have_keywords), "nice_to_have_keywords"),
+      field("Exclude keywords (reject if present)", T("exclude_keywords", p.exclude_keywords), "exclude_keywords"),
+      field("Exclude companies", T("exclude_companies", p.exclude_companies), "exclude_companies"))),
+    h("div", { class: "row" }, h("button", { class: "btn primary", id: "saveProfile" }, "Save profile"), h("span", { id: "saveMsg", class: "small" })));
+  const resumes = h("div", { class: "card" }, h("h2", {}, "Resumes"),
+    h("div", { class: "small muted" }, "Only read for jobs the rules can't decide on their own, and only on this computer (unless you turn on LLM scoring)."), h("div", { id: "resumeList" }),
+    h("div", { class: "row", style: "margin-top:10px" }, field("Variant name", h("input", { id: "rName", placeholder: "e.g. backend", maxlength: 40 })),
+      field("PDF file", h("input", { id: "rFile", type: "file", accept: "application/pdf" })), h("button", { class: "btn", id: "rUp" }, "Upload"), h("span", { id: "rMsg", class: "small err" })));
+  const secrets = h("div", { class: "card" }, h("h2", {}, "AI matching (OpenAI)"),
+    h("div", { class: "small muted" }, "An OpenAI model matches every job: first against your profile details (including your pay), then, if that is unclear, against your resume. Notice period and work authorization are never sent. The key is read from the .env file on this computer and is never shown or stored in the browser."),
+    h("div", { id: "llmStatus", style: "margin-top:8px" }, "Checking…"));
+  main.replaceChildren(form, resumes, secrets);
+
+  const collect = () => {
+    const g = (n) => $(`[data-f="${n}"]`, form), val = (n) => g(n).value, c = (n) => g(n).checked;
+    return {
+      current_ctc_lpa: num(val("current_ctc_lpa")), expected_ctc_lpa: { min: num(val("expected_ctc_lpa.min")), target: num(val("expected_ctc_lpa.target")) },
+      usd_to_inr: num(val("usd_to_inr")), years_experience: num(val("years_experience")), max_required_years: num(val("max_required_years")),
+      notice_period_days: num(val("notice_period_days")), work_authorization: val("work_authorization") || null,
+      locations: { preferred: csv(val("locations.preferred")), accept_hybrid: c("locations.accept_hybrid"), accept_onsite_outside_preferred: c("locations.accept_onsite_outside_preferred") },
+      target_titles: csv(val("target_titles")), seniority: { min_level: val("seniority.min_level"), max_level: val("seniority.max_level"), reject_titles: csv(val("seniority.reject_titles")) },
+      must_have_keywords: csv(val("must_have_keywords")), nice_to_have_keywords: csv(val("nice_to_have_keywords")), exclude_keywords: csv(val("exclude_keywords")), exclude_companies: csv(val("exclude_companies")),
+    };
+  };
+  $("#saveProfile").onclick = async () => {
+    setErrors(form, []); const msg = $("#saveMsg"); msg.textContent = "";
+    try { await api("/api/profile", { method: "PUT", json: collect() }); msg.textContent = "Saved ✓  To judge jobs you already have against the new profile, select them on the Jobs tab and click “Re-run matching”."; msg.className = "small ok"; refreshState(); }
+    catch (e) { if (e.status === 422 && e.data && e.data.errors) { setErrors(form, e.data.errors); msg.textContent = "Fix the highlighted fields."; msg.className = "small bad"; } else { msg.textContent = e.message; msg.className = "small bad"; } }
+  };
+  const drawResumes = (list) => {
+    $("#resumeList").replaceChildren(list.length ? h("table", {}, h("tbody", {}, list.map((r) => h("tr", {}, h("td", {}, h("b", {}, r.name)), h("td", { class: "muted" }, `${Math.round(r.bytes / 1024)} KB`),
+      h("td", {}, h("button", { class: "btn sm danger", onclick: async () => { try { drawResumes((await api(`/api/resumes/${encodeURIComponent(r.name)}`, { method: "DELETE" })).resumes); refreshState(); } catch (e) { toast(e.message, true); } } }, "Remove")))))) : h("div", { class: "muted" }, "No resumes uploaded yet."));
+  };
+  drawResumes(data.resumes);
+  $("#rUp").onclick = async () => {
+    const f = $("#rFile").files[0], name = $("#rName").value.trim(), msg = $("#rMsg"); msg.textContent = "";
+    if (!name || !f) { msg.textContent = "Give the variant a name and choose a PDF."; return; }
+    const fd = new FormData(); fd.append("name", name); fd.append("file", f);
+    try { drawResumes((await api("/api/resumes", { method: "POST", form: fd })).resumes); $("#rFile").value = ""; $("#rName").value = ""; refreshState(); toast("Resume uploaded"); } catch (e) { msg.textContent = e.message; }
+  };
+  const llmStatus = async () => {
+    const x = await api("/api/llm"), box = $("#llmStatus");
+    box.replaceChildren(
+      x.openai_key_set ? h("div", { class: "ok" }, `OpenAI API key found (${x.key_hint || "short key"}). Model: ${x.model}. ${x.concurrency} calls at a time.`)
+        : h("div", {}, h("div", { class: "warn" }, "No OpenAI API key found."), h("div", { class: "small" }, `Add this line to ${x.env_file} and restart the dashboard:`), h("pre", {}, "OPENAI_API_KEY=sk-...")),
+      x.prompt_problem ? h("div", { class: "bad small" }, "Prompt problem: " + x.prompt_problem) : h("div", { class: "small muted" }, `Prompts (edit to change what the AI is asked): ${x.prompt_file} (profile check) and ${x.resume_prompt_file} (resume check for unclear jobs)`));
+  };
+  llmStatus();
+}
+
+// ---------- COMPANIES ----------
+let catOffset = 0;
+async function viewCompanies() {
+  const main = $("#main");
+  const q = h("input", { placeholder: "Search company or sector", id: "cq" }), band = h("select", { id: "cb" }, ["", "large", "medium", "small", "micro"].map((o) => h("option", { value: o }, o || "any size"))),
+    ver = h("select", { id: "cv" }, [["", "any feed status"], ["yes", "live job feed verified"], ["no", "no feed found"]].map(([v, t]) => h("option", { value: v }, t))),
+    cr = h("select", { id: "cc" }, [["", "any"], ["yes", "in my crawler"], ["no", "not in my crawler"]].map(([v, t]) => h("option", { value: v }, t)));
+  const list = h("div"), info = h("div", { class: "small muted" });
+  const custom = h("div", { class: "card" }, h("h2", {}, "Add a company by hand"), h("div", { class: "row" },
+    field("Company", h("input", { id: "nName" })), field("Careers page or job-board URL", h("input", { id: "nUrl", placeholder: "https://…", style: "min-width:280px" })),
+    field("Type", h("select", { id: "nAts" }, ["auto", "greenhouse", "lever", "ashby", "workday", "custom"].map((o) => h("option", {}, o)))),
+    h("button", { class: "btn", id: "nAdd" }, "Add & enable"), h("span", { id: "nMsg", class: "small err" })));
+  main.replaceChildren(h("div", { class: "card" }, h("h2", {}, "Companies"), h("div", { class: "small muted" }, "Pick which company career pages to monitor. Companies with a verified feed can be crawled right away; others need a working careers URL."),
+    h("div", { class: "row", style: "margin:10px 0" }, field("Search", q), field("Size", band), field("Job feed", ver), field("Crawler", cr),
+      h("button", { class: "btn primary", id: "cAdd" }, "Add selected to crawler"), h("button", { class: "btn", id: "cOff" }, "Disable selected")), info, list), custom);
+  const load = async () => {
+    const p = new URLSearchParams({ q: q.value, band: band.value, verified: ver.value, crawler: cr.value, limit: 100, offset: catOffset });
+    const d = await api("/api/catalog?" + p);
+    info.textContent = `${d.total} companies` + (d.total > 100 ? ` — showing ${catOffset + 1}–${Math.min(catOffset + 100, d.total)}` : "");
+    list.replaceChildren(h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, ""), h("th", {}, "Company"), h("th", {}, "Size"), h("th", {}, "Feed"), h("th", {}, "Crawler"), h("th", {}, "HQ / sector"), h("th", {}, "Careers"))),
+      h("tbody", {}, d.rows.map((r) => h("tr", {}, h("td", {}, h("input", { type: "checkbox", "data-name": r.company })), h("td", {}, h("b", {}, r.company)), h("td", {}, h("span", { class: "badge" }, r.size_band)),
+        h("td", {}, r.verified === "yes" ? h("span", { class: "badge accept" }, r.ats_type) : h("span", { class: "badge" }, r.portal_status || "none")),
+        h("td", {}, r.crawler_active === "yes" ? h("span", { class: "badge accept" }, "active") : r.in_crawler === "yes" ? h("span", { class: "badge" }, "off") : ""),
+        h("td", { class: "muted small" }, [r.hq_city, r.sector].filter(Boolean).join(" · ")),
+        h("td", {}, r.careers_url ? extLink(r.careers_url, "open") : r.fallback_portal ? extLink(r.fallback_portal, "LinkedIn search") : "")))))),
+      d.total > 100 ? h("div", { class: "row" }, h("button", { class: "btn sm", disabled: catOffset === 0, onclick: () => { catOffset = Math.max(0, catOffset - 100); load(); } }, "← Prev"),
+        h("button", { class: "btn sm", disabled: catOffset + 100 >= d.total, onclick: () => { catOffset += 100; load(); } }, "Next →")) : null);
+  };
+  [q, band, ver, cr].forEach((el) => el.addEventListener("change", () => { catOffset = 0; load(); }));
+  q.addEventListener("keydown", (e) => { if (e.key === "Enter") { catOffset = 0; load(); } });
+  const selected = () => [...document.querySelectorAll("input[data-name]:checked")].map((x) => x.dataset.name);
+  const apply = async (active) => {
+    const names = selected(); if (!names.length) return toast("Tick some companies first", true);
+    const r = await api("/api/catalog/select", { method: "POST", json: { names, active } });
+    toast(`${r.updated.length} updated` + (r.skipped.length ? `, ${r.skipped.length} skipped (no usable careers URL)` : ""), r.skipped.length && !r.updated.length); load();
+  };
+  $("#cAdd").onclick = () => apply(true); $("#cOff").onclick = () => apply(false);
+  $("#nAdd").onclick = async () => {
+    const msg = $("#nMsg"); msg.textContent = "";
+    try { await api("/api/companies", { method: "POST", json: { company: $("#nName").value.trim(), careers_url: $("#nUrl").value.trim(), ats_type: $("#nAts").value, active: true } }); toast("Company added"); $("#nName").value = ""; $("#nUrl").value = ""; load(); }
+    catch (e) { msg.textContent = e.data && e.data.detail ? JSON.stringify(e.data.detail) : e.message; }
+  };
+  load();
+}
+
+// ---------- DISCOVER ----------
+const LI_DEFAULT = () => ({ keyword: "", location: "India", job_type: null, remote_filter: null, experience_level: null, sort_by: "recent" });
+let liQueries = JSON.parse(localStorage.getItem("liQueries") || "null") || [LI_DEFAULT()];
+let liSettings = JSON.parse(localStorage.getItem("liSettings") || "null") || { window: "24hr", max_listings: 100, workers: 2 };
+if (liSettings.workers > 6) liSettings.workers = 6; // 8, 10 and 12 were removed; a browser that saved one falls back to the maximum
+async function viewDiscover() {
+  await refreshState(); const main = $("#main"), st = appState;
+  const src = JSON.parse(localStorage.getItem("sources") || "null") || { ats: true, linkedin: false, match: true };
+  const chk = (id, v, label, dis) => h("div", { class: "chk" }, h("input", { type: "checkbox", id, checked: v, disabled: dis }), h("label", { for: id }, label));
+  const opt = (arr, v) => arr.map((o) => h("option", { value: o[0] ?? "", selected: (o[0] ?? "") === (v ?? "") }, o[1]));
+  const liBox = h("div", { class: "card" });
+  const drawLi = () => {
+    const l = st.linkedin;
+    liBox.replaceChildren(h("h2", {}, "LinkedIn search"),
+      h("div", { class: "small muted" }, `LinkedIn requests made today: ${l.requests_today}`),
+      h("h3", {}, "What to search for"),
+      h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Keyword", "Location", "Job type", "Workplace", "Experience", "Sort", ""].map((t) => h("th", {}, t)))),
+        h("tbody", {}, liQueries.map((q, i) => h("tr", {},
+          h("td", {}, h("input", { value: q.keyword, placeholder: "e.g. backend engineer", oninput: (e) => (q.keyword = e.target.value) })),
+          h("td", {}, h("input", { value: q.location, placeholder: "city or country", oninput: (e) => (q.location = e.target.value) })),
+          h("td", {}, h("select", { onchange: (e) => (q.job_type = e.target.value || null) }, opt([["", "any"], ["full time", "full time"], ["part time", "part time"], ["contract", "contract"], ["temporary", "temporary"], ["internship", "internship"], ["volunteer", "volunteer"]], q.job_type))),
+          h("td", {}, h("select", { onchange: (e) => (q.remote_filter = e.target.value || null) }, opt([["", "any"], ["on site", "on site"], ["remote", "remote"], ["hybrid", "hybrid"]], q.remote_filter))),
+          h("td", {}, h("select", { onchange: (e) => (q.experience_level = e.target.value || null) }, opt([["", "any"], ["internship", "internship"], ["entry level", "entry level"], ["associate", "associate"], ["senior", "senior"], ["director", "director"], ["executive", "executive"]], q.experience_level))),
+          h("td", {}, h("select", { onchange: (e) => (q.sort_by = e.target.value) }, opt([["recent", "newest"], ["relevant", "most relevant"]], q.sort_by))),
+          h("td", {}, h("button", { class: "btn sm danger", onclick: () => { liQueries.splice(i, 1); if (!liQueries.length) liQueries.push(LI_DEFAULT()); drawLi(); } }, "✕"))))))),
+      h("div", { class: "row", style: "margin-top:8px" }, h("button", { class: "btn sm", onclick: () => { liQueries.push(LI_DEFAULT()); drawLi(); } }, "+ Add search"),
+        h("button", { class: "btn sm", onclick: async () => { const d = await api("/api/linkedin/defaults"); if (!d.queries.length) return toast("Save your profile first – suggestions come from it", true); liQueries = d.queries; drawLi(); } }, "Fill from my profile")),
+      h("h3", {}, "How much to fetch"),
+      h("div", { class: "grid" },
+        field("Posted within", h("select", { onchange: (e) => (liSettings.window = e.target.value) }, opt([["24hr", "last 24 hours"], ["past week", "past week"], ["past month", "past month"]], liSettings.window))),
+        field("Max listings per run (shared across your searches)", h("input", { type: "number", min: 1, max: 1000, value: liSettings.max_listings, oninput: (e) => { liSettings.max_listings = +e.target.value; } })),
+        field("Parallel requests (searching and descriptions)", h("select", { onchange: (e) => { liSettings.workers = +e.target.value; drawLi(); } }, [1, 2, 3, 4, 6].map((n) => h("option", { value: n, selected: n === liSettings.workers }, n))))),
+      liSettings.workers > 4 ? h("div", { class: "small warn" }, "Requests are spread evenly, so higher values are faster without bursts, but how many parallel requests LinkedIn tolerates is unproven. If it refuses us, the run stops and keeps what it already collected.") : null);
+  };
+  const liToggle = chk("srcLi", src.linkedin, "LinkedIn jobs (search + descriptions)");
+  const sched = h("div", { class: "card" }), schedList = h("div");
+  const config = () => ({
+    ats: { enabled: $("#srcAts").checked, companies: null },
+    linkedin: { enabled: $("#srcLi").checked, queries: liQueries.filter((q) => q.keyword.trim() && q.location.trim()), window: liSettings.window, max_listings: liSettings.max_listings, workers: liSettings.workers },
+    match: $("#srcMatch").checked,
+  });
+  const persist = () => { localStorage.setItem("liQueries", JSON.stringify(liQueries)); localStorage.setItem("liSettings", JSON.stringify(liSettings)); localStorage.setItem("sources", JSON.stringify({ ats: $("#srcAts").checked, linkedin: $("#srcLi").checked, match: $("#srcMatch").checked })); };
+  const startBox = h("div", { class: "card" }, h("h2", {}, "Start discovery"),
+    !st.profile_exists ? h("div", { class: "banner" }, "You haven't saved a profile yet. Discovery will still collect jobs, but matching needs your profile (Profile tab).") : null,
+    chk("srcAts", src.ats, "Company career pages I've enabled (Companies tab)"), liToggle, chk("srcMatch", src.match, "Match the jobs with AI afterwards" + (st.openai_key_set ? "" : " (needs OPENAI_API_KEY in .env – see Profile tab)")),
+    h("div", { class: "row", style: "margin-top:10px" }, h("button", { class: "btn primary", id: "go", disabled: st.busy }, st.busy ? "A run is in progress…" : "Start now"), h("span", { id: "goMsg", class: "small err" })));
+  main.replaceChildren(startBox, liBox, sched);
+  drawLi();
+  const toggleLi = () => liBox.classList.toggle("hidden", !$("#srcLi").checked); $("#srcLi").onchange = toggleLi; toggleLi();
+  $("#go").onclick = async () => {
+    persist(); const msg = $("#goMsg"); msg.textContent = "";
+    try { const r = await api("/api/runs", { method: "POST", json: config() }); localStorage.setItem("focusRun", r.run_id); showTab("Runs"); }
+    catch (e) { msg.textContent = e.data && e.data.detail ? (typeof e.data.detail === "string" ? e.data.detail : e.data.detail.map((d) => `${(d.loc || []).slice(1).join(".")}: ${d.msg}`).join("; ")) : e.message; }
+  };
+  const FREQ = [[120, "every 2 hours"], [180, "every 3 hours"], [240, "every 4 hours"], [360, "every 6 hours"], [720, "every 12 hours"], [1440, "every day"], [10080, "every week"]];
+  const drawSched = async () => {
+    const list = await api("/api/schedules");
+    schedList.replaceChildren(list.length ? h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["Name", "Runs", "What", "Next run", "Last run", "On", ""].map((t) => h("th", {}, t)))),
+      h("tbody", {}, list.map((s) => h("tr", {}, h("td", {}, h("b", {}, s.name)), h("td", {}, (FREQ.find((f) => f[0] === s.interval_minutes) || [0, `every ${s.interval_minutes} min`])[1]),
+        h("td", { class: "small muted" }, [s.config.ats.enabled ? "company pages" : null, s.config.linkedin.enabled ? `LinkedIn (${s.config.linkedin.queries.length} searches)` : null, s.config.match ? "matching" : null].filter(Boolean).join(" + ")),
+        h("td", { class: "small" }, s.enabled ? ist(s.next_run_at) : "—"), h("td", { class: "small" }, s.last_run_at ? ist(s.last_run_at) : "never"),
+        h("td", {}, h("input", { type: "checkbox", checked: s.enabled, onchange: async (e) => { await api(`/api/schedules/${s.id}`, { method: "PATCH", json: { enabled: e.target.checked } }); drawSched(); } })),
+        h("td", {}, h("button", { class: "btn sm danger", onclick: async () => { if (confirm(`Delete schedule "${s.name}"?`)) { await api(`/api/schedules/${s.id}`, { method: "DELETE" }); drawSched(); } } }, "Delete"))))))) : h("div", { class: "muted" }, "No schedules yet."));
+  };
+  sched.replaceChildren(h("h2", {}, "Schedules"), h("div", { class: "small muted" }, "Repeat the discovery settings above automatically while this app is running. The shortest allowed interval is 2 hours. Runs never overlap: a due schedule waits for the current run to finish."),
+    schedList, h("div", { class: "row", style: "margin-top:10px" }, field("Name", h("input", { id: "sName", placeholder: "e.g. Morning sweep" })),
+      field("Repeat", h("select", { id: "sFreq" }, FREQ.map(([v, t]) => h("option", { value: v, selected: v === 1440 }, t)))), h("button", { class: "btn", id: "sAdd" }, "Save current settings as schedule"), h("span", { id: "sMsg", class: "small err" })));
+  $("#sAdd").onclick = async () => {
+    persist(); const msg = $("#sMsg"); msg.textContent = "";
+    try { await api("/api/schedules", { method: "POST", json: { name: $("#sName").value.trim() || "Scheduled discovery", interval_minutes: +$("#sFreq").value, enabled: true, config: config() } }); $("#sName").value = ""; toast("Schedule saved"); drawSched(); }
+    catch (e) { msg.textContent = e.data && e.data.detail ? (typeof e.data.detail === "string" ? e.data.detail : e.data.detail.map((d) => `${(d.loc || []).slice(1).join(".")}: ${d.msg}`).join("; ")) : e.message; }
+  };
+  drawSched();
+}
+
+// ---------- RUNS ----------
+async function viewRuns() {
+  await refreshState(); const main = $("#main");
+  const live = h("div"), hist = h("div", { class: "card" });
+  main.replaceChildren(live, hist);
+  const runs = await api("/api/runs"); let focus = +(localStorage.getItem("focusRun") || 0) || (appState.busy ? appState.current_run_id : (runs[0] || {}).id);
+  const drawHist = (rs) => hist.replaceChildren(h("h2", {}, "Recent runs"), rs.length ? h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, ["#", "Started", "By", "Status", "New", "Changed", "Problems", ""].map((t) => h("th", {}, t)))),
+    h("tbody", {}, rs.map((r) => h("tr", {}, h("td", {}, r.id), h("td", { class: "small" }, ist(r.started_at)), h("td", { class: "small muted" }, r.trigger || "manual"),
+      h("td", {}, h("span", { class: "badge " + (r.status === "finished" ? "accept" : r.status === "failed" ? "reject" : "") }, r.status)), h("td", {}, r.new_count), h("td", {}, r.changed_count), h("td", {}, r.errors.length || ""),
+      h("td", {}, h("button", { class: "btn sm", onclick: () => { focus = r.id; localStorage.setItem("focusRun", r.id); watch(r.id); window.scrollTo(0, 0); } }, "View"))))))) : h("div", { class: "muted" }, "No runs yet. Start one from the Discover tab."));
+  drawHist(runs);
+  const logEl = h("div", { class: "log" }); let shown = new Set();
+  const panel = (title, body) => h("div", { class: "card" }, h("h2", {}, title), body);
+  const draw = (run) => {
+    const p = run.progress || {}, active = run.status === "running", parts = [];
+    parts.push(h("div", { class: "card" }, h("div", { class: "row" }, h("h2", { style: "margin:0" }, `Run #${run.id}`), h("span", { class: "badge " + (run.status === "finished" ? "accept" : run.status === "failed" ? "reject" : "") }, run.status),
+      h("span", { class: "small muted" }, `${run.trigger || "manual"} · started ${ist(run.started_at, "time")}`), h("span", { class: "spacer" }),
+      active ? h("button", { class: "btn danger", onclick: async () => { try { await api(`/api/runs/${run.id}/cancel`, { method: "POST" }); toast("Cancelling…"); } catch (e) { toast(e.message, true); } } }, "Cancel") : null),
+      h("div", { class: "small" }, `New jobs ${run.new_count ?? 0} · changed ${run.changed_count ?? 0} · removed ${run.removed_count ?? 0}` + (run.errors.length ? ` · ${run.errors.length} problem(s)` : ""))));
+    if (p.ats) parts.push(panel("Company career pages", h("div", {}, h("div", { class: "small" }, p.ats.state === "skipped" ? "Skipped – no companies enabled." : `${p.ats.done} of ${p.ats.total} checked` + (p.ats.current ? ` · now: ${p.ats.current}` : "") + ` · new ${p.ats.new} · changed ${p.ats.changed} · failed ${p.ats.failed}`), bar(p.ats.done, p.ats.total))));
+    if (p.linkedin) { const l = p.linkedin; parts.push(panel("LinkedIn", l.state === "skipped" ? h("div", { class: "warn" }, l.reason) : h("div", {},
+      h("div", { class: "small" }, `Listings found ${l.unique ?? 0} of up to ${l.max ?? "?"}` + (l.query ? ` · searching "${l.query}"` : "")), bar(l.unique || 0, l.max || 1),
+      h("div", { class: "small", style: "margin-top:8px" }, `Descriptions ${l.descriptions_done ?? 0} of ${l.descriptions_total ?? 0}` + (l.failed ? ` · ${l.failed} failed` : "")), bar(l.descriptions_done || 0, l.descriptions_total || 0),
+      h("div", { class: "small muted", style: "margin-top:6px" }, `${l.requests ?? 0} requests · ${l.rate_limited ?? 0} slow-down responses handled · ${l.state}`)))); }
+    if (p.matching) { const m = p.matching; parts.push(panel("Matching", m.state === "skipped" ? h("div", { class: "warn" }, m.reason) : h("div", {},
+      h("div", { class: "small" }, `${m.done} of ${m.total} jobs checked · ${m.newly_scored} newly scored`), bar(m.done, m.total),
+      m.llm_total ? h("div", {}, h("div", { class: "small", style: "margin-top:8px" }, `AI checks ${m.llm_done || 0} of ${m.llm_total}`), bar(m.llm_done || 0, m.llm_total)) : null,
+      ...(m.buckets ? [h("div", { class: "small muted", style: "margin-top:6px" }, `Matched ${m.buckets.accept || 0} · not a fit ${m.buckets.reject || 0}${m.buckets.review ? ` · AI check failed ${m.buckets.review} (retried next run)` : ""}`),
+        m.run_profile !== undefined ? h("div", { class: "small", style: "margin-top:4px" }, h("b", {}, "This run: "), `${m.run_profile} resolved from profile details · ${m.run_resume} needed the resume check`) : null,
+        m.run_profile !== undefined ? h("div", { class: "small muted" }, `All active jobs: ${m.decided_stage1} resolved from profile details · ${m.decided_stage2} resume-checked`) : null] : [])))); }
+    if (run.errors.length) parts.push(panel("Problems", h("ul", {}, run.errors.map((e) => h("li", { class: "bad small" }, `${e.company}: ${e.error}`)))));
+    parts.push(panel("Log", logEl));
+    live.replaceChildren(...parts);
+  };
+  const addEvents = (evs) => { for (const e of evs) { if (shown.has(e.id)) continue; shown.add(e.id); logEl.append(h("div", { class: e.level }, `${ist(e.ts, "time")}  ${e.message}`)); } logEl.scrollTop = logEl.scrollHeight; };
+  const watch = async (id) => {
+    closeStream(); shown = new Set(); logEl.replaceChildren();
+    const run = await api(`/api/runs/${id}`); draw(run); addEvents(await api(`/api/runs/${id}/events`));
+    if (run.status === "running") {
+      stream = new EventSource(`/api/runs/${id}/stream`);
+      stream.onmessage = (m) => { const d = JSON.parse(m.data); draw(d.run); addEvents(d.events); refreshState(); };
+      stream.addEventListener("end", async () => { closeStream(); await refreshState(); drawHist(await api("/api/runs")); });
+      stream.onerror = () => { /* the browser retries; a finished run ends with the 'end' event */ };
+    }
+  };
+  if (focus) watch(focus); else live.replaceChildren(h("div", { class: "card muted" }, "Nothing has run yet."));
+}
+
+// ---------- JOBS ----------
+let jobsBucket = "accept", jobsOffset = 0;
+const jobFilters = JSON.parse(localStorage.getItem("jobFilters") || "null") || { q: "", source: "", since: "", min_score: "", state: "" };
+if (/h$/.test(jobFilters.since || "")) jobFilters.since = "2d"; // filters saved before Posted became calendar days (e.g. "24h")
+async function viewJobs() {
+  const main = $("#main");
+  let jobsPhase = ""; // "", "profile" or "resume": a view toggle only, never saved
+  const sel = new Set(), actBar = h("div", { class: "row small", style: "gap:8px;margin-bottom:8px" }); // jobs ticked for "Re-run matching" (page-local, never saved)
+  const phaseBar = h("div", { class: "row small", style: "gap:8px;margin:6px 0" });
+  const f = jobFilters, tabsEl = h("div", { class: "tabs" }), list = h("div", { class: "card" }), notice = h("div", { class: "banner hidden" });
+  const inp = (key, ph, type = "text") => h("input", { type, placeholder: ph, value: f[key], style: type === "number" ? "width:90px" : "", onchange: (e) => { f[key] = e.target.value; jobsOffset = 0; localStorage.setItem("jobFilters", JSON.stringify(f)); load(); } });
+  const selF = (key, opts) => h("select", { onchange: (e) => { f[key] = e.target.value; jobsOffset = 0; localStorage.setItem("jobFilters", JSON.stringify(f)); load(); } }, opts.map(([v, t]) => h("option", { value: v, selected: v === f[key] }, t)));
+  main.replaceChildren(phaseBar, tabsEl, h("div", { class: "card" }, h("div", { class: "row" }, field("Search", inp("q", "title, company, location")),
+    field("Source", selF("source", [["", "all"], ["ats", "company pages"], ["linkedin", "LinkedIn"]])), field("Posted (IST dates)", selF("since", [["", "any time"], ["today", "today"], ["2d", "yesterday & today"], ["3d", "last 3 days"], ["7d", "last 7 days"], ["30d", "last 30 days"]])),
+    field("Min score", inp("min_score", "0", "number")), field("My list", selF("state", [["", "active"], ["saved", "saved"], ["applied", "applied"], ["hidden", "hidden"]])))), notice, list);
+  const BUCKETS = [["accept", "Matched"], ["review", "Not checked"], ["reject", "Not a fit"]];
+  let drawAct = () => {};
+  async function load() {
+    const p = new URLSearchParams({ bucket: jobsBucket, limit: 50, offset: jobsOffset }); if (jobsPhase) p.set("phase", jobsPhase);
+    for (const [k, v] of Object.entries(f)) if (v !== "" && v !== null) p.set(k, v);
+    let d; try { d = await api("/api/jobs?" + p); } catch (e) { list.replaceChildren(h("div", { class: "bad" }, e.message)); return; }
+    tabsEl.replaceChildren(...BUCKETS.map(([k, t]) => h("button", { class: k === jobsBucket ? "on" : "", onclick: () => { jobsBucket = k; jobsOffset = 0; load(); } }, `${t} (${d.counts[k]})`)));
+    const PH = [["", "All decided jobs", d.phases.profile + d.phases.resume], ["profile", "Resolved from profile details", d.phases.profile], ["resume", "Resume-checked (profile was unclear)", d.phases.resume]];
+    phaseBar.replaceChildren(h("span", { class: "muted" }, "Decided by:"), ...PH.map(([k, t, n]) => h("button", { class: "btn sm" + (k === jobsPhase ? " primary" : ""), onclick: () => { jobsPhase = k; jobsOffset = 0; load(); } }, `${t} (${n})`)));
+    // Filters are saved between visits: say so loudly, show how many jobs they hide, and offer one click to clear them.
+    const SINCE = { today: "today", "2d": "yesterday & today", "3d": "last 3 days", "7d": "last 7 days", "30d": "last 30 days" }, SRC = { ats: "company pages", linkedin: "LinkedIn" };
+    const on = [f.q ? `search "${f.q}"` : null, f.source ? `source: ${SRC[f.source] || f.source}` : null, f.since ? `posted: ${SINCE[f.since] || f.since}` : null,
+      Number(f.min_score) > 0 ? `score ≥ ${f.min_score}` : null, f.state ? `my list: ${f.state}` : null].filter(Boolean);
+    if (!on.length) notice.classList.add("hidden");
+    else {
+      let all = null; try { const u = await api("/api/jobs?bucket=all&limit=1"); all = u.counts.accept + u.counts.review + u.counts.reject; } catch { /* the notice still helps without the total */ }
+      const shown = d.counts.accept + d.counts.review + d.counts.reject;
+      notice.replaceChildren(h("b", {}, "Filters are on: "), on.join(" · "), ` — showing ${shown}${all !== null ? ` of ${all}` : ""} jobs. `,
+        h("button", { class: "btn sm", onclick: () => { Object.assign(f, { q: "", source: "", since: "", min_score: "", state: "" }); localStorage.setItem("jobFilters", JSON.stringify(f)); jobsOffset = 0; viewJobs(); } }, "Clear filters"));
+      notice.classList.remove("hidden");
+    }
+    if (!d.jobs.length) { list.replaceChildren(h("div", { class: "muted" }, d.counts.accept + d.counts.review + d.counts.reject === 0 ? "No scored jobs yet. Save your profile, then run discovery with matching on." : "Nothing here with these filters.")); return; }
+    const act = (j, st, label) => h("button", { class: "btn sm" + (j.user_state === st ? " primary" : ""), onclick: async () => { await api(`/api/jobs/${j.id}/state`, { method: "PUT", json: { state: j.user_state === st ? "none" : st } }); load(); } }, label);
+    drawAct = () => actBar.replaceChildren(h("span", { class: "muted" }, sel.size ? `${sel.size} selected` : "Re-run matching after changing your profile:"), h("button", { class: "btn sm primary", disabled: !sel.size, onclick: () => rematch([...sel]) }, `Re-run matching for selected (${sel.size})`), h("button", { class: "btn sm", onclick: () => rematch(d.all_ids) }, `Re-run for all ${d.total} in this view`), sel.size ? h("button", { class: "btn sm", onclick: () => { sel.clear(); drawAct(); load(); } }, "Clear selection") : null);
+    drawAct();
+    list.replaceChildren(actBar, h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, [h("input", { type: "checkbox", title: "Select all jobs on this page", checked: d.jobs.length > 0 && d.jobs.every((j) => sel.has(j.id)), onchange: (e) => { for (const j of d.jobs) e.target.checked ? sel.add(j.id) : sel.delete(j.id); drawAct(); load(); } }), "Posted", "Company", "Role", "Where", "Pay", "Verdict", "Why", ""].map((t) => h("th", {}, t)))),
+      h("tbody", {}, d.jobs.map((j) => h("tr", {}, h("td", {}, h("input", { type: "checkbox", checked: sel.has(j.id), onchange: (e) => { e.target.checked ? sel.add(j.id) : sel.delete(j.id); drawAct(); } })), h("td", { class: "small" }, j.age), h("td", {}, h("b", {}, j.company), h("div", {}, h("span", { class: "badge" }, j.source === "linkedin" ? "LinkedIn" : "company page"))),
+        h("td", {}, h("a", { href: "#", onclick: (e) => { e.preventDefault(); openJob(j.id); } }, j.title), j.user_state ? h("div", {}, h("span", { class: "badge review" }, j.user_state)) : null),
+        h("td", { class: "small" }, j.location || "—"), h("td", { class: "small" }, j.salary), h("td", {}, h("span", { class: "badge " + j.bucket }, j.bucket === "accept" ? "match" : j.bucket === "reject" ? "no match" : "unchecked")),
+        h("td", { class: "small muted" }, j.bucket === "review" ? "AI check failed" : j.stage_decided === 1 ? "from profile details" : "resume compared"),
+        h("td", { class: "small muted", style: "max-width:300px" }, j.top_reasons.join(" · ")),
+        h("td", { style: "white-space:nowrap" }, extLink(j.url, "Open job ↗", "btn sm primary" ), " ", act(j, "saved", "Save"), " ", act(j, "applied", "Applied"), " ", act(j, "hidden", "Hide"))))))),
+      h("div", { class: "row", style: "margin-top:8px" }, h("button", { class: "btn sm", disabled: jobsOffset === 0, onclick: () => { jobsOffset = Math.max(0, jobsOffset - 50); load(); } }, "← Prev"),
+        h("span", { class: "small muted" }, `${jobsOffset + 1}–${Math.min(jobsOffset + 50, d.total)} of ${d.total}`), h("button", { class: "btn sm", disabled: jobsOffset + 50 >= d.total, onclick: () => { jobsOffset += 50; load(); } }, "Next →")));
+  }
+  load();
+}
+async function rematch(ids) {
+  if (!ids || !ids.length) return;
+  if (!confirm(`Re-run the AI matching for ${ids.length} job(s) with your current profile? This calls OpenAI once or twice per job.`)) return;
+  try { const r = await api("/api/jobs/rematch", { method: "POST", json: { ids } }); localStorage.setItem("focusRun", r.run_id); showTab("Runs"); }
+  catch (e) { toast(e.message, true); }
+}
+async function openJob(id) {
+  const dr = $("#drawer"); dr.classList.remove("hidden"); dr.replaceChildren(h("div", { class: "muted" }, "Loading…"));
+  const j = await api(`/api/jobs/${id}`), m = j.match;
+  dr.replaceChildren(h("div", { class: "row" }, h("h2", { style: "margin:0" }, j.title), h("span", { class: "spacer" }), h("button", { class: "btn sm", onclick: closeDrawer }, "Close")),
+    h("div", { class: "muted" }, `${j.company} · ${j.location || "location not stated"} · ${j.source === "linkedin" ? "from LinkedIn" : "company career page"}`),
+    h("div", { class: "row", style: "margin:10px 0" }, extLink(j.url, "Open job ↗ (apply there)", "btn primary"), h("button", { class: "btn", onclick: () => rematch([j.id]) }, "Re-run matching for this job"), m ? h("span", { class: "badge " + m.bucket }, m.bucket === "accept" ? "match" : m.bucket === "reject" ? "no match" : "AI check failed") : null),
+    m ? h("div", {}, h("h3", {}, "Why it was " + (m.bucket === "accept" ? "matched" : m.bucket === "reject" ? "rejected" : "not decided")),
+      h("div", { class: "small muted" }, `${m.bucket === "review" ? "The AI check failed; it will be retried on the next run." : m.stage_decided === 1 ? "Decided by the AI from your profile details." : "The profile details were not enough, so the AI compared the job with your resume."} ${m.resume_read ? `Resume used: ${m.resume_variant}.` : "Your resume was not sent for this job."}`),
+      h("ul", { class: "reasons" }, m.reasons.map((r) => h("li", { class: r.effect }, h("b", {}, r.rule.replaceAll("_", " ")), ": ", r.detail))),
+      h("details", {}, h("summary", { class: "small muted" }, "Exact inputs used"), h("pre", {}, JSON.stringify(m.inputs, null, 2)))) : h("div", { class: "muted" }, "Not scored yet."),
+    h("h3", {}, "Description"), h("pre", {}, j.description_text || "(no description was collected for this job)"),
+    h("h3", {}, "History"), h("ul", { class: "small" }, j.events.map((e) => h("li", {}, `${ist(e.created_at)} – ${e.type}`))));
+}
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+
+// ---------- boot ----------
+(async () => { renderNav(); await refreshState(); setInterval(refreshState, 5000); showTab(TABS.includes(tab) ? tab : "Jobs"); })();
+</script>
+</body>
+</html>

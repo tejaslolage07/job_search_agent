@@ -1,0 +1,17 @@
+# The matcher is entirely AI-based (OpenAI). The API key is never here: put OPENAI_API_KEY in .env.
+# Phase 1 sends the job + your profile details (including your current / expected pay and the job's posted pay; never notice period or work authorization) and gets match / no match / ambiguous.
+# Phase 2 (only for phase-1 "ambiguous") sends the job + your resume and must answer match / no match.
+llm:
+  model: gpt-6-luna        # OPENAI_MODEL in .env overrides this. Check what your key can use: llm_test_kit/run_test.py --list-models
+  reasoning_effort: none    # phase 1 (profile check): none = no thinking, fastest and cheapest. "" = model default; low / medium / high think more
+  resume_reasoning_effort: low   # phase 2 (resume check, only for unclear jobs): a little thinking where the judgement is hardest
+  max_output_tokens: null  # normally unset: reasoning models spend part of this limit on thinking
+  max_retries: 3           # repeats after a rate limit (429), server error or timeout, with growing waits
+  timeout_seconds: 120
+  concurrency: 8           # AI calls running at once
+  max_jd_chars: 6000
+  max_resume_chars: 6000
+  cache: explicit          # explicit = only the shared start of each prompt (instructions + profile / resume) is cached; implicit = OpenAI caches every whole prompt (costs more)
+  cache_ttl: 30m
+  prompt_file: llm_prompt.md                 # in config/: phase 1 instructions
+  resume_prompt_file: llm_prompt_resume.md   # in config/: phase 2 instructions

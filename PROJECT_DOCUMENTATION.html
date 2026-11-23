@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>job_search_agent — Project Documentation</title>
+<style>
+  :root{--bg:#fff;--fg:#1d2330;--muted:#5b6475;--line:#e3e7ee;--card:#f6f8fb;--accent:#2457d6;--ok:#14794a;--warn:#a65b00;--bad:#b3261e;--code:#eef1f6}
+  @media (prefers-color-scheme:dark){:root{--bg:#12151c;--fg:#e6e9f0;--muted:#9aa4b6;--line:#2a3140;--card:#1a1f2a;--accent:#7aa2ff;--ok:#4cc38a;--warn:#e0a24a;--bad:#ff8a80;--code:#222836}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:24px 16px 80px}
+  header{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:8px}
+  h1{font-size:2rem;margin:.2em 0}
+  h2{font-size:1.45rem;margin:2.2em 0 .5em;padding-top:.6em;border-top:1px solid var(--line)}
+  h3{font-size:1.1rem;margin:1.6em 0 .4em}
+  p,li{max-width:75ch}
+  .sub{color:var(--muted);margin:0}
+  nav{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:16px 0}
+  nav a{color:var(--accent);text-decoration:none;margin-right:14px;white-space:nowrap;display:inline-block}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.88em}
+  code{background:var(--code);padding:.1em .35em;border-radius:4px}
+  pre{background:var(--code);padding:12px 14px;border-radius:8px;overflow-x:auto;line-height:1.45}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;margin:.8em 0;font-size:.93rem;display:block;overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+  th{background:var(--card)}
+  .box{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:10px 14px;margin:1em 0}
+  .box.warn{border-left-color:var(--warn)} .box.ok{border-left-color:var(--ok)} .box.bad{border-left-color:var(--bad)}
+  .box p{margin:.3em 0}
+  svg{max-width:100%;height:auto}
+  svg text{fill:var(--fg);font:13px -apple-system,sans-serif}
+  svg .b{fill:var(--card);stroke:var(--line);stroke-width:1.2}
+  svg .a{fill:none;stroke:var(--muted);stroke-width:1.4;marker-end:url(#ah)}
+  svg .hl{fill:var(--card);stroke:var(--accent);stroke-width:1.8}
+  svg .nl{fill:var(--card);stroke:var(--ok);stroke-width:1.8}
+  svg .sm{font-size:11px;fill:var(--muted)}
+  .tag{display:inline-block;font-size:.75rem;padding:0 .5em;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>job_search_agent</h1>
+  <p class="sub">Monitors specific companies' public career pages, detects <strong>new</strong> job listings, and ranks them against your profile — newest first. Discovery and matching only: it never applies, logs in, or sends messages.</p>
+</header>
+
+<nav>
+  <a href="#big-picture">Big picture</a><a href="#layout">Code layout</a><a href="#discovery">Discovery</a><a href="#polite">Politeness</a>
+  <a href="#db">Database</a><a href="#diff">Diff rules</a><a href="#matching">Matching</a><a href="#ranking">Ranking</a>
+  <a href="#cli">CLI</a><a href="#config">Config files</a><a href="#catalog">Company catalog</a><a href="#tests">Tests</a><a href="#limits">Limits &amp; status</a>
+</nav>
+
+<h2 id="big-picture">1. The big picture</h2>
+<p>One pass of the tool does two independent jobs. <strong>Crawling</strong> (<code>run</code>) is fully deterministic: it fetches each company's jobs, compares them with what is stored, and records what is new, changed, or gone. <strong>Matching</strong> (<code>match</code>) scores stored jobs against your profile and prints a ranked list. Keeping them separate means crawling never needs your resume, and matching never touches the network.</p>
+
+<svg viewBox="0 0 900 250" role="img" aria-label="Pipeline: companies.csv to discovery to diff to SQLite to matching to ranked output">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a6"/></marker></defs>
+  <rect class="b" x="10" y="20" width="130" height="56" rx="8"/><text x="75" y="44" text-anchor="middle">companies.csv</text><text class="sm" x="75" y="62" text-anchor="middle">source of truth</text>
+  <rect class="hl" x="180" y="20" width="150" height="56" rx="8"/><text x="255" y="44" text-anchor="middle">Discovery</text><text class="sm" x="255" y="62" text-anchor="middle">ATS feed / JSON-LD / …</text>
+  <rect class="hl" x="370" y="20" width="130" height="56" rx="8"/><text x="435" y="44" text-anchor="middle">Diff</text><text class="sm" x="435" y="62" text-anchor="middle">new / changed / removed</text>
+  <rect class="b" x="540" y="20" width="150" height="56" rx="8"/><text x="615" y="44" text-anchor="middle">SQLite</text><text class="sm" x="615" y="62" text-anchor="middle">data/job_search_agent.db</text>
+  <path class="a" d="M140 48H178"/><path class="a" d="M330 48H368"/><path class="a" d="M500 48H538"/>
+  <text class="sm" x="10" y="106">← crawl: deterministic, no LLM, no resume →</text>
+  <path d="M10 112H890" stroke="#8a93a6" stroke-dasharray="4 4" fill="none"/>
+  <rect class="b" x="540" y="140" width="150" height="56" rx="8"/><text x="615" y="164" text-anchor="middle">jobs (active)</text><text class="sm" x="615" y="182" text-anchor="middle">+ profile + matching.yaml</text>
+  <rect class="nl" x="370" y="140" width="130" height="56" rx="8"/><text x="435" y="164" text-anchor="middle">Phase 1 (AI)</text><text class="sm" x="435" y="182" text-anchor="middle">job + profile details</text>
+  <rect class="nl" x="180" y="140" width="150" height="56" rx="8"/><text x="255" y="164" text-anchor="middle">Phase 2 (AI)</text><text class="sm" x="255" y="182" text-anchor="middle">ambiguous only: resume</text>
+  <rect class="b" x="10" y="140" width="130" height="56" rx="8"/><text x="75" y="164" text-anchor="middle">Ranked list</text><text class="sm" x="75" y="182" text-anchor="middle">newest day first</text>
+  <path class="a" d="M615 76V138" style="display:none"/>
+  <path class="a" d="M540 168H502"/><path class="a" d="M370 168H332"/><path class="a" d="M180 168H142"/>
+  <text class="sm" x="10" y="226">← match: reads stored jobs only; phase 2 is the only step that sends a resume →</text>
+</svg>
+
+<h2 id="layout">2. Code layout</h2>
+<table>
+<tr><th>Path</th><th>What it does</th></tr>
+<tr><td><code>src/job_search_agent/cli.py</code></td><td>Typer commands: <code>run</code>, <code>match</code>, <code>new</code>, <code>status</code>, <code>show</code>, <code>explain</code>.</td></tr>
+<tr><td><code>pipeline.py</code></td><td><code>crawl()</code> orchestrates companies → source → diff → store. <code>score_jobs()</code> decides which jobs need (re)scoring.</td></tr>
+<tr><td><code>http.py</code></td><td><code>PoliteClient</code>: robots.txt, honest User-Agent, 1 req/s per host, backoff, stop on repeated 403/429.</td></tr>
+<tr><td><code>sources/</code></td><td><code>ats.py</code> (Greenhouse, Lever, Ashby), <code>workday.py</code>, <code>generic.py</code> (JSON-LD → sitemap → selectors → Playwright), <code>detect.py</code> (ATS auto-detection), <code>playwright_fallback.py</code>.</td></tr>
+<tr><td><code>parsers/</code></td><td><code>html.py</code> (HTML→text, location normalization), <code>salary.py</code> (INR/LPA/lakh/crore/USD→LPA), <code>years.py</code> (required experience), <code>location.py</code> (location verdict).</td></tr>
+<tr><td><code>diff.py</code></td><td>Computes a plan (new / changed / unchanged / missed / removed) and applies it.</td></tr>
+<tr><td><code>matching/</code></td><td><code>llm.py</code> (prompts, privacy guard, reply parsing, the OpenAI judge), <code>engine.py</code> (phase 1 then phase 2), <code>resumes.py</code> (lazy resume PDFs), <code>openai_client.py</code>, <code>types.py</code>.</td></tr>
+<tr><td><code>store.py</code></td><td>SQLite schema and helpers. <code>config.py</code>: pydantic validation of profile and matching config. <code>report.py</code>: ranking and output formats.</td></tr>
+<tr><td><code>scripts/</code></td><td>One-off catalog tooling (see <a href="#catalog">section 10</a>). Not part of the installed package.</td></tr>
+</table>
+
+<h2 id="discovery">3. Discovery: how jobs are fetched</h2>
+<p>For each active company, in order:</p>
+<ol>
+  <li><strong>Detect the ATS</strong> when <code>ats_type</code> is <code>auto</code>. The careers URL is matched against known patterns (e.g. <code>jobs.lever.co/&lt;token&gt;</code>); if that fails, the page HTML is scanned for embedded board links. The result is saved so later runs skip detection.</li>
+  <li><strong>Public JSON feeds</strong> for Greenhouse, Lever and Ashby (never HTML scraping). Endpoints were verified against live boards:
+<pre><code>Greenhouse  GET boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true
+Lever       GET api.lever.co/v0/postings/{token}?mode=json
+Ashby       GET api.ashbyhq.com/posting-api/job-board/{token}?includeCompensation=true</code></pre></li>
+  <li><strong>Workday</strong>: the public CXS endpoint the career site itself calls. List pages give only title/location, so details are fetched just for jobs not seen before (capped per run).</li>
+  <li><strong>Custom sites</strong>, trying in this order and stopping at the first that returns jobs: JSON-LD <code>JobPosting</code> on the page → sitemap job URLs (each fetched, capped) → per-company CSS selectors from <code>config/selectors.yaml</code>.</li>
+  <li><strong>Playwright</strong> (headless browser) only if a custom page has <code>needs_js: true</code> and nothing above worked. Each fallback is logged and shown in <code>status</code> as an expensive fallback.</li>
+</ol>
+<p>Each source normalises its output into the same <code>RawJob</code> shape (title, url, external id, location, posted date, description text, workplace type, salary text, raw payload), so everything after discovery is source-agnostic. Greenhouse's escaped HTML, Lever's epoch-millisecond dates, and Ashby's compensation summaries are all handled in the adapters.</p>
+
+<h2 id="polite">4. Politeness and safety rules</h2>
+<ul>
+  <li><strong>Public endpoints only.</strong> No login, no LinkedIn/Naukri.</li>
+  <li><strong>robots.txt</strong> is fetched once per host and respected. A 4xx robots file means "no restrictions" (RFC 9309); a 5xx means "assume disallowed".</li>
+  <li><strong>Honest User-Agent</strong>: <code>job_search_agent/0.1 (personal job-discovery tool; honours robots.txt)</code>.</li>
+  <li><strong>Rate limit</strong>: at most 1 request per second per host.</li>
+  <li><strong>Retries</strong> with exponential backoff on 5xx and network errors. Redirect loops are not retried.</li>
+  <li><strong>Stop, don't evade</strong>: the second 403/429 from a host marks it blocked for the rest of the run; no further requests go to it.</li>
+  <li><strong>One failure never spreads</strong>: an error in one company is logged and the crawl continues with the rest.</li>
+</ul>
+
+<h2 id="db">5. Data model (SQLite)</h2>
+<p>Everything lives in <code>data/job_search_agent.db</code>. Raw payloads are kept in <code>jobs.raw_json</code> for traceability.</p>
+<table>
+<tr><th>Table</th><th>Purpose</th><th>Notable columns</th></tr>
+<tr><td><code>companies</code></td><td>Imported from the CSV every run.</td><td>ats_type, board_token, tier, active, last_checked_at (last <em>successful</em> fetch), discovery_method</td></tr>
+<tr><td><code>jobs</code></td><td>One row per job, identity = (company_id, external_id).</td><td>description_text/hash, raw_json, first/last_seen_at, status (active|removed), missed_count, workplace_type, salary_text</td></tr>
+<tr><td><code>runs</code></td><td>One row per real <code>run</code>.</td><td>counts, errors_json, fallbacks_json</td></tr>
+<tr><td><code>events</code></td><td>Audit log.</td><td>type: new | changed | removed | error; detail_json</td></tr>
+<tr><td><code>match_results</code></td><td>Every scoring, kept as history.</td><td>stage_decided (the phase that decided: 1 profile, 2 resume), final_score (100 match / 0 no match / 50 failed), bucket, reasons_json (AI verdicts + the calls made), resume_variant, resume_hash, profile_hash, matching_config_hash, job_hash, method</td></tr>
+<tr><td><code>resume_cache</code></td><td>Parsed resume text keyed by file hash.</td><td>file_hash, text</td></tr>
+</table>
+<p>If a job has no source id, its identity is a hash of the normalised URL (lower-cased host, no fragment, no tracking params, no trailing slash).</p>
+
+<h2 id="diff">6. How "new / changed / removed" is decided</h2>
+<table>
+<tr><th>Outcome</th><th>Rule</th></tr>
+<tr><td><strong>New</strong></td><td>Identity not in the database. A job that was <em>removed</em> and reappears is re-activated and logged as new (<code>reappeared</code>).</td></tr>
+<tr><td><strong>Changed</strong></td><td>Title, location, or description hash differs from the stored row. The event lists which fields changed.</td></tr>
+<tr><td><strong>Removed</strong></td><td>Missing from <strong>2 consecutive successful</strong> fetches of its company (<code>missed_count</code> reaches 2). Seen again → counter resets.</td></tr>
+<tr><td><strong>Duplicates</strong></td><td>Same identity twice in one fetch collapses to one.</td></tr>
+</table>
+<div class="box ok"><p><strong>A failed fetch never removes anything.</strong> Failures raise before the diff is computed. As an extra guard, a feed that returns zero jobs while jobs are stored is treated as a failure, not as "everything was removed".</p></div>
+<p><strong>Idempotency:</strong> with no site changes, a second run reports zero new, changed, and removed jobs. <code>--dry-run</code> fetches and diffs and prints the result, but writes no jobs, events, or runs (it still syncs the <code>companies</code> table from the CSV).</p>
+
+<h2 id="matching">7. Matching: two AI phases (no rules)</h2>
+<svg viewBox="0 0 900 220" role="img" aria-label="Matching flow: phase 1 asks the AI about the job and the profile details; only ambiguous jobs go to phase 2, which asks about the job and the resume and must answer match or no match">
+  <rect class="b" x="10" y="80" width="110" height="56" rx="8"/><text x="65" y="105" text-anchor="middle">Stored job</text><text class="sm" x="65" y="122" text-anchor="middle">+ profile details</text>
+  <rect class="nl" x="170" y="80" width="150" height="56" rx="8"/><text x="245" y="105" text-anchor="middle">Phase 1 (AI)</text><text class="sm" x="245" y="122" text-anchor="middle">no resume</text>
+  <path class="a" d="M120 108H168"/>
+  <rect class="b" x="400" y="10" width="200" height="50" rx="8"/><text x="500" y="32" text-anchor="middle">MATCH → accept</text><text class="sm" x="500" y="48" text-anchor="middle">resume_hash = NULL</text>
+  <rect class="b" x="400" y="80" width="200" height="50" rx="8"/><text x="500" y="102" text-anchor="middle">NO MATCH → reject</text><text class="sm" x="500" y="118" text-anchor="middle">resume_hash = NULL</text>
+  <rect class="hl" x="400" y="150" width="200" height="50" rx="8"/><text x="500" y="172" text-anchor="middle">AMBIGUOUS</text>
+  <path class="a" d="M320 95L398 40"/><path class="a" d="M320 108H398"/><path class="a" d="M320 121L398 170"/>
+  <rect class="nl" x="660" y="140" width="220" height="70" rx="8"/><text x="770" y="163" text-anchor="middle">Phase 2 (AI + resume)</text><text class="sm" x="770" y="181" text-anchor="middle">match or no match only</text><text class="sm" x="770" y="197" text-anchor="middle">resume_hash = file hash</text>
+  <path class="a" d="M600 175H658"/>
+</svg>
+
+<h3>Phase 1: job + profile details</h3>
+<p>Prompt: <code>config/llm_prompt.md</code>. The model gets the job (title, company, location, description) and the <strong>profile details</strong> built by <code>Profile.details_text()</code>: years of experience, target titles, seniority range, max years the job may ask for, preferred locations and hybrid / onsite rules, must-have and nice-to-have skills, dealbreaker words, companies to avoid, and <strong>your current and expected CTC with the USD rate</strong>. The job's <strong>posted pay</strong> is sent as its own field, so the model can reject jobs whose pay is clearly below your expected minimum (pay that is not stated is neutral). It answers one line: <code>match: &lt;word&gt;</code>, <code>no match: &lt;word&gt;</code> or <code>ambiguous</code>, where the word is the strongest parameter behind the verdict.</p>
+
+<h3>Phase 2: job + resume, only when phase 1 says ambiguous</h3>
+<ul>
+  <li>Prompt: <code>config/llm_prompt_resume.md</code>. The resume goes in place of the profile details. <strong>Ambiguous is not allowed</strong>: the prompt forbids it and the reply parser rejects it, so a phase-2 job ends as <code>match</code> or <code>no match</code> (an off-spec or ambiguous reply is a failed check that is retried next run, never a result).</li>
+  <li>Resume PDFs are parsed with pypdf, cached by file hash, and only sent in phase 2. With several resume variants, one <code>match</code> is enough; all must say <code>no match</code> to reject.</li>
+  <li>If the key is missing, the API fails, the reply is off-spec or the resume cannot be read, the job stays in <code>review</code> (shown as "Not checked") with method <code>llm-failed</code> and is asked again on the next run. There is no non-AI fallback.</li>
+</ul>
+<div class="box"><p><strong>What is sent:</strong> the job text and posted pay, the profile details above (pay included) in phase 1, and the resume text in phase 2. Notice period, work authorization and resume file paths are never sent. Model, effort, retries, concurrency, caching: the <code>llm:</code> section of <code>config/matching.yaml</code> (<code>OPENAI_MODEL</code> in <code>.env</code> overrides the model).</p></div>
+<div class="box"><p><strong>Cost design:</strong> reasoning effort is <code>none</code> for phase 1 (quick triage, about 6 output tokens per call) and <code>low</code> for phase 2 (<code>resume_reasoning_effort</code>, the careful resume check). With <code>cache: explicit</code> only the shared start of each prompt (instructions + profile in phase 1, instructions + resume in phase 2, ended by the <code>{{cache_here}}</code> line of the prompt file) is cached and read back at about a tenth of the input price; the per-job text after it is billed as plain input. The shared start must reach about 1,024 tokens or nothing is cached, which is why the phase-1 prompt carries worked examples. Every API call is stored in the <code>llm_calls</code> table (full request and response, input / output / reasoning / cached / cache-write tokens).</p></div>
+<div class="box"><p><strong>Audit proof:</strong> <code>match_results.resume_hash</code> is NULL whenever phase 2 did not run. If it is set, the resume was sent; if it is NULL, it was not. <code>explain JOB_ID</code> shows each call's verdict, word, model and token counts.</p></div>
+
+<h3>Scores and buckets</h3>
+<table>
+<tr><th>Case</th><th>final_score</th><th>bucket</th></tr>
+<tr><td>match (either phase)</td><td>100</td><td>accept</td></tr>
+<tr><td>no match (either phase)</td><td>0</td><td>reject</td></tr>
+<tr><td>AI check failed</td><td>50</td><td>review ("Not checked")</td></tr>
+</table>
+
+<h3>When jobs are re-scored</h3>
+<p>A job is asked again only if its content hash (title, location, description, salary text), the profile details the AI sees (pay included), or the prompt / model fingerprint changed — or you pass <code>--rescore</code>. Notice period and work authorization are never sent, so changing them re-scores nothing. Failed checks are retried automatically. Jobs are judged <code>llm.concurrency</code> (8) at a time and each result is saved as it arrives, so an interrupted run keeps what it finished.</p>
+
+<h2 id="ranking">8. Ranking (and time zone)</h2>
+<p><strong>Time zone:</strong> every time is Indian Standard Time (IST, UTC+05:30, no daylight saving). Stored timestamps look like <code>2026-11-21T00:09:29+05:30</code>, so they all share one offset and sort correctly as text. Times that arrive in another zone (an ATS's <code>…Z</code> UTC timestamp, an epoch number) are converted on the way in; LinkedIn only gives a date, which is kept as that IST day at 00:00. "Calendar days" (the Posted filter, today / yesterday ages) are IST days, schedules run on IST, and the dashboard displays IST whatever the browser's zone. A database written before this change is converted once, automatically, on the next start, after a backup copy (<code>job_search_agent.db.before-ist.bak</code>). Code: <code>src/job_search_agent/timeutil.py</code>.</p>
+<p>Sort key: <strong>calendar day of <code>posted_at</code></strong> (falling back to <code>first_seen_at</code>) descending → <strong>final_score</strong> descending → exact timestamp descending. Score can reorder jobs within a day but can never lift an older day's job above a newer one.</p>
+
+<h2 id="cli">9. Command reference</h2>
+<table>
+<tr><th>Command</th><th>What it does</th></tr>
+<tr><td><code>run [--company NAME] [--dry-run]</code></td><td>Import the CSV, crawl, diff, save. Exit code 2 if every company failed.</td></tr>
+<tr><td><code>match [--since 24h|7d] [--min-score N] [--bucket accept|review|reject|all] [--company NAME] [--format table|json|md] [--limit N] [--llm] [--rescore]</code></td><td>Score stale/unscored active jobs, then print the ranked list. Default hides <code>reject</code>. Columns: age, company, title, location, salary, score, stage, resume read, variant, top 3 reasons, URL.</td></tr>
+<tr><td><code>new [--since 24h|7d]</code></td><td>Raw newly-seen listings, no matching. The very first crawl of a company marks everything as new (that is the baseline).</td></tr>
+<tr><td><code>status</code></td><td>Last run, per-company active/removed counts, last OK time, failures, expensive fallbacks.</td></tr>
+<tr><td><code>show JOB_ID [--raw]</code></td><td>Full record and event history.</td></tr>
+<tr><td><code>explain JOB_ID</code></td><td>Each AI call made for the job (phase, verdict, one-word reason, model, tokens), hashes, and whether the resume was sent.</td></tr>
+</table>
+<p>Typical daily use: <code>job_search_agent run</code> → <code>job_search_agent match --since 24h</code> → <code>job_search_agent explain &lt;id&gt;</code> for anything surprising.</p>
+
+<h2 id="config">10. Configuration files</h2>
+<table>
+<tr><th>File</th><th>Role</th></tr>
+<tr><td><code>config/companies.csv</code></td><td>Source of truth for what is crawled. Columns: company, careers_url, ats_type (auto|greenhouse|lever|ashby|workday|custom), board_token, tier, active, notes. Adding a company = adding a row.</td></tr>
+<tr><td><code>config/profile.yaml</code> <span class="tag">gitignored</span></td><td>Your profile, validated by pydantic with clear errors for missing fields. <code>profile.example.yaml</code> is the commented template. Relative resume paths resolve against <code>config/</code>.</td></tr>
+<tr><td><code>config/matching.yaml</code></td><td>The <code>llm:</code> section only: model, reasoning effort, retries, concurrency, text limits, the two prompt file names. The two prompts live in <code>config/llm_prompt.md</code> and <code>config/llm_prompt_resume.md</code>; the key in <code>.env</code>.</td></tr>
+<tr><td><code>config/selectors.yaml</code></td><td>Per-company CSS selectors for custom career pages, keyed by exact company name.</td></tr>
+<tr><td><code>data/</code> <span class="tag">gitignored</span></td><td>The SQLite database and catalog probe logs.</td></tr>
+</table>
+
+<h2 id="catalog">11. The company catalog (separate from the crawler)</h2>
+<p><code>config/india_companies.csv</code> is a <em>reference list</em> of India-based software employers (about 1,200 rows), banded Large / Medium / Small / Micro. It is not crawled directly; its first seven columns match <code>companies.csv</code> so chosen rows can be copied across and set <code>active=true</code>. Every row starts <code>active=false</code>.</p>
+<ul>
+  <li><strong>Where it came from:</strong> names recalled from memory, plus companies from <code>India_Software_Hiring_Companies_v2.xlsx</code> (Inc42 / Seedtable lists). Size bands are approximate. Old rows use one band scheme and xlsx-sourced rows another; the <code>size_basis</code> column says which.</li>
+  <li><strong>Verified</strong> (<code>verified=yes</code>) means a live public Greenhouse/Lever/Ashby board was found. Only a small fraction qualify, because most large Indian employers use Workday, SuccessFactors, or their own sites.</li>
+  <li><code>portal_status</code> records the link check: ok, dead, blocked (401/403), robots disallowed, or unreachable. <code>fallback_portal</code> is a LinkedIn search link for browsing by hand; the tool never crawls it.</li>
+  <li><strong>Scripts:</strong> <code>scripts/build_catalog.py</code> (probe ATS boards, write CSV; resumable), <code>scripts/check_portals.py</code> (check xlsx portals), <code>scripts/merge_xlsx.py</code> (append missing companies).</li>
+</ul>
+
+<h2 id="tests">12. Tests</h2>
+<p>Pytest tests with no live network (saved fixtures, <code>httpx.MockTransport</code>, and a fake OpenAI server). They cover: new / changed / removed-after-2-runs, failed fetch not removing, duplicates, the two-phase matcher (phase 1 never sends the resume, an ambiguous phase-1 answer goes to phase 2, phase 2 can never end ambiguous, failures are retried), what is and is not sent in each request body, concurrency, caching and cancelling, the dashboard API and the test kit.</p>
+
+<h2 id="limits">13. Known limits and status</h2>
+<table>
+<tr><th>Area</th><th>Status</th></tr>
+<tr><td>Greenhouse, Lever, Ashby</td><td>Verified live (Anthropic, Databricks, Palantir, Meesho, Ashby). Lever's API was returning 5xx at one point during catalog probing.</td></tr>
+<tr><td>Workday</td><td>Adapter written; endpoint verified once by hand, but the live end-to-end run was stopped by a 429 on the host's robots.txt. Treat as <strong>untested</strong>.</td></tr>
+<tr><td>Custom sites (JSON-LD, sitemap, selectors)</td><td>Unit-tested on fixtures only; no live site has been run through it.</td></tr>
+<tr><td>Playwright fallback</td><td>Code present, never run (no browser installed).</td></tr>
+<tr><td>AI matcher</td><td>Unit-tested with a fake OpenAI server; not yet run against the live API with real jobs (use <code>llm_test_kit/run_test.py</code> first). The default model name is a placeholder: set the real one in <code>.env</code> or <code>config/matching.yaml</code>.</td></tr>
+<tr><td>Profile values</td><td>Expected CTC (28 min / 35 target), USD rate (88), max years (4) and seniority range are placeholder assumptions to confirm.</td></tr>
+</table>
+<div class="box warn"><p><strong>Scope reminder:</strong> the tool only discovers and ranks. It never applies, logs in, or messages anyone, and it stops rather than working around blocks.</p></div>
+
+</div>
+</body>
+</html>

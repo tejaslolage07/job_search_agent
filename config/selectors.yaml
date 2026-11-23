@@ -1,0 +1,17 @@
+# Per-company HTML selectors for custom career pages (used only when JSON-LD and
+# sitemap discovery find nothing). Keys are company names exactly as in companies.csv.
+#
+# Example Custom Co:
+#   job_card: "li.job-listing"      # one element per job (required)
+#   title: "a.job-title"            # CSS selector inside the card (default: first <a>)
+#   link: "a.job-title"             # element whose href is the job URL (default: title)
+#   location: ".job-location"
+#   department: ".job-team"
+#   sitemap_pattern: "/careers/jobs/"   # regex a sitemap URL must match to count as a job
+#   max_pages: 40                   # cap on per-job page fetches per run
+#   needs_js: false                 # true => allow Playwright fallback if nothing else works
+Example Custom Co:
+  job_card: "li.job-listing"
+  title: "a.job-title"
+  location: ".job-location"
+  needs_js: false
