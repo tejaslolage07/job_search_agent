@@ -249,7 +249,7 @@ async function viewProfile() {
   const form = h("div", {},
     data.invalid ? h("div", { class: "banner" }, "Your saved profile.yaml has problems: " + data.invalid) : null,
     h("div", { class: "card" }, h("h2", {}, "Compensation & experience"), h("div", { class: "grid" },
-      field("Your name (shown as initials, top right; never sent to the AI)", I("name", p.name), "name"),
+      field("Your name", I("name", p.name), "name"),
       field("Current CTC (LPA)", I("current_ctc_lpa", p.current_ctc_lpa, "number"), "current_ctc_lpa"),
       field("Expected CTC – minimum (LPA)", I("expected_ctc_lpa.min", p.expected_ctc_lpa.min, "number"), "expected_ctc_lpa.min"),
       field("Expected CTC – target (LPA)", I("expected_ctc_lpa.target", p.expected_ctc_lpa.target, "number"), "expected_ctc_lpa.target"),
