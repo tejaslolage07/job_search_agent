@@ -312,7 +312,7 @@ async function viewProfile() {
       field("Exclude companies", T("exclude_companies", p.exclude_companies), "exclude_companies"))),
     h("div", { class: "row" }, h("button", { class: "btn primary", id: "saveProfile" }, "Save profile"), h("span", { id: "saveMsg", class: "small" })));
   const resumes = h("div", { class: "card" }, h("h2", {}, "Resumes"),
-    h("div", { class: "small muted" }, "Only read for jobs the rules can't decide on their own, and only on this computer (unless you turn on LLM scoring)."), h("div", { id: "resumeList" }),
+    h("div", { id: "resumeList" }),
     h("div", { class: "row", style: "margin-top:10px" }, field("Variant name", h("input", { id: "rName", placeholder: "e.g. backend", maxlength: 40 })),
       field("PDF file", h("input", { id: "rFile", type: "file", accept: "application/pdf" })), h("button", { class: "btn", id: "rUp" }, "Upload"), h("span", { id: "rMsg", class: "small err" })));
   main.replaceChildren(form, resumes);
