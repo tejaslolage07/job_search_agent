@@ -294,8 +294,8 @@ async function viewProfile() {
       field("Years of experience", I("years_experience", p.years_experience, "number"), "years_experience"),
       field("Max years a posting may require (blank = no limit)", I("max_required_years", p.max_required_years, "number"), "max_required_years"),
       field("Notice period (days)", h("select", { "data-f": "notice_period_days" }, [["", "Not set"], ...[...new Set([0, 15, 30, 60, 90, 120, 180, ...(p.notice_period_days != null ? [p.notice_period_days] : [])])].sort((a, b) => a - b).map((n) => [String(n), n === 0 ? "0 (immediate)" : String(n)])].map(([v, t]) => h("option", { value: v, selected: v === String(p.notice_period_days ?? "") }, t))), "notice_period_days"),
-      field("Work authorization", h("select", { "data-f": "work_authorization" }, h("option", { value: "Indian citizen", selected: true }, "Indian citizen")), "work_authorization")),
-      h("div", { class: "small muted" }, "Your current and expected pay are sent to the AI together with the rest of the profile, so it can judge a job's posted pay. Notice period and work authorization are stored only and never sent.")),
+      field("Work authorization", h("select", { "data-f": "work_authorization" }, h("option", { value: "Indian citizen", selected: true }, "Indian citizen")), "work_authorization"))),
+
     h("div", { class: "card" }, h("h2", {}, "Where & what"),
       h("div", { class: "grid" },
         field("Preferred locations (blank = anywhere)", multi("locations.preferred", CITIES, p.locations.preferred, "Anywhere"), "locations.preferred"),
