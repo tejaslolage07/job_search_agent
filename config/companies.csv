@@ -6,3 +6,67 @@ Example Workday Co,https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite
 Example Custom Co,https://example.com/careers,custom,,3,false,Placeholder - custom site; add selectors in config/selectors.yaml
 Databricks,https://job-boards.greenhouse.io/databricks,auto,,1,true,Demo board - Greenhouse with many India roles
 Meesho,https://jobs.lever.co/meesho,auto,,2,true,Demo board - Lever with many Bengaluru roles
+Razorpay,https://razorpay.com/careers/,greenhouse,razorpaysoftwareprivatelimited,,true,from catalog; test-crawl verified
+Lendingkart,https://www.lendingkart.com/careers,custom,,,true,from catalog; test-crawl verified
+HFCL,https://www.hfcl.com/company/careers,custom,,,true,from catalog; test-crawl verified
+Easyecom,https://www.easyecom.io/careers,custom,,,true,from catalog; test-crawl verified
+Dozee,https://www.dozeehealth.ai/careers,lever,dozee,,true,from catalog; test-crawl verified
+Increff,https://www.increff.com/careers,custom,,,true,from catalog; test-crawl verified
+Mindtickle,https://jobs.lever.co/mindtickle,lever,mindtickle,,true,from catalog; test-crawl verified
+Latent View Analytics,https://www.latentview.com/career/,custom,,,true,from catalog; test-crawl verified
+Brainvire,https://www.brainvire.com/careers/,custom,,,true,from catalog; test-crawl verified
+Route Mobile,https://jobs.proximus.com/be/en/proximus-global,custom,,,true,from catalog; test-crawl verified
+Fluid AI,https://fluid.ai/careers,custom,,,true,from catalog; test-crawl verified
+Detect Technologies,https://detecttechnologies.com/careers,custom,,,true,from catalog; test-crawl verified
+Fibe (EarlySalary),https://www.fibe.in/careers/,custom,,,true,from catalog; test-crawl verified
+Syrma SGS,https://syrmasgs.com/career-locations/,custom,,,true,from catalog; test-crawl verified
+Wipro,https://careers.wipro.com,custom,,,true,from catalog; test-crawl verified
+Safe Security,https://jobs.lever.co/safe/,lever,safe,,true,from catalog; test-crawl verified
+Mistral Solutions,https://mistralsolutions.com/career/,custom,,,true,from catalog; test-crawl verified
+Teachmint,https://www.teachmint.com/careers,custom,,,true,from catalog; test-crawl verified
+Lupin,https://careers.lupin.com/,custom,,,true,from catalog; test-crawl verified
+Xoriant,https://careers.xoriant.com/in/en,custom,,,true,from catalog; test-crawl verified
+Composio,https://jobs.ashbyhq.com/composio,ashby,composio,,true,from catalog; test-crawl verified
+Shipsy,https://www.shipsy.ai/careers,custom,,,true,from catalog; test-crawl verified
+Consint,https://consint.ai/careers/,custom,,,true,from catalog; test-crawl verified
+IDFC First Bank,https://careers.idfcfirst.bank.in/in/en/home?utm_source=website&utm_medium=L1TheBankCareers&utm_campaign=Careers,custom,,,true,from catalog; test-crawl verified
+Kaleidofin,https://www.kaleidofin.com/careers,custom,,,true,from catalog; test-crawl verified
+Ignosis,https://ignosis.ai/careers,custom,,,true,from catalog; test-crawl verified
+River,https://jobs.ashbyhq.com/river,ashby,river,,true,from catalog; test-crawl verified
+Tata AIG,https://careers.tataaig.com/,custom,,,true,from catalog; test-crawl verified
+Rtcamp,https://careers.rtcamp.com/,custom,,,true,from catalog; test-crawl verified
+Quadeye,https://www.quadeye.com/jobs,custom,,,true,from catalog; test-crawl verified
+Vakilsearch,https://vakilsearch.com/careers,custom,,,true,from catalog; test-crawl verified
+Cipla,https://ejhp.fa.us6.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2,oracle,ejhp.fa.us6.oraclecloud.com|CX_2,,true,from catalog; test-crawl verified
+Havells,https://iabgcp.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1,oracle,iabgcp.fa.ocs.oraclecloud.com|CX_1,,true,from catalog; test-crawl verified
+Nucleus Software,https://nucleussoftware.zohorecruit.in/jobs/Careers,zoho,nucleussoftware.zohorecruit.in,,true,from catalog; test-crawl verified
+Majesco,https://fa-emad-saasfaprod1.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_6001,oracle,fa-emad-saasfaprod1.fa.ocs.oraclecloud.com|CX_6001,,true,from catalog; test-crawl verified
+Mintifi,https://mintifi.keka.com/careers,keka,mintifi,,true,from catalog; test-crawl verified
+StayVista,https://stayvista.keka.com/careers,keka,stayvista,,true,from catalog; test-crawl verified
+Tejas Networks,https://iablcp.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/TejasNetworks,oracle,iablcp.fa.ocs.oraclecloud.com|TejasNetworks,,true,from catalog; test-crawl verified
+WebEngage,https://webklipper.keka.com/careers,keka,webklipper,,true,from catalog; test-crawl verified
+Zen Technologies,https://zentechnologies.zohorecruit.in/jobs/Careers,zoho,zentechnologies.zohorecruit.in,,true,from catalog; test-crawl verified
+Zluri,https://zluri.keka.com/careers,keka,zluri,,true,from catalog; test-crawl verified
+3SC Solutions,https://3scsolution.keka.com/careers,keka,3scsolution,,true,from catalog; test-crawl verified
+Convegenius,https://convegenius.keka.com/careers,keka,convegenius,,true,from catalog; test-crawl verified
+Disprz,https://disprz.keka.com/careers,keka,disprz,,true,from catalog; test-crawl verified
+Freyr Energy,https://freyrenergy.zohorecruit.com/jobs/Careers,zoho,freyrenergy.zohorecruit.com,,true,from catalog; test-crawl verified
+Infinite Uptime,https://infiniteuptime.keka.com/careers,keka,infiniteuptime,,true,from catalog; test-crawl verified
+Intangles,https://intangles.keka.com/careers,keka,intangles,,true,from catalog; test-crawl verified
+Onsitego,https://onsitego.keka.com/careers,keka,onsitego,,true,from catalog; test-crawl verified
+SarvaGram,https://sarvagram.zohorecruit.in/jobs/Careers,zoho,sarvagram.zohorecruit.in,,true,from catalog; test-crawl verified
+Signzy,https://signzy.keka.com/careers,keka,signzy,,true,from catalog; test-crawl verified
+SISA,https://sisainfosec.keka.com/careers,keka,sisainfosec,,true,from catalog; test-crawl verified
+Tata Capital,https://eofh.fa.em2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX,oracle,eofh.fa.em2.oraclecloud.com|CX,,true,from catalog; test-crawl verified
+Wellthy Therapeutics,https://wellthytherapeutics.zohorecruit.in/jobs/Careers,zoho,wellthytherapeutics.zohorecruit.in,,true,from catalog; test-crawl verified
+Zenwork,https://zenwork.keka.com/careers,keka,zenwork,,true,from catalog; test-crawl verified
+Awiros,https://awiros.keka.com/careers,keka,awiros,,true,from catalog; test-crawl verified
+Difinity Digital,https://difinitydigital.keka.com/careers,keka,difinitydigital,,true,from catalog; test-crawl verified
+EyeROV,https://eyerov.keka.com/careers,keka,eyerov,,true,from catalog; test-crawl verified
+Kratikal,https://kratikal.zohorecruit.com/jobs/Careers,zoho,kratikal.zohorecruit.com,,true,from catalog; test-crawl verified
+Loop Health,https://loop.keka.com/careers,keka,loop,,true,from catalog; test-crawl verified
+Oben Electric,https://obenelectric.zohorecruit.in/jobs/Careers,zoho,obenelectric.zohorecruit.in,,true,from catalog; test-crawl verified
+Perceptyne,https://perceptyne.keka.com/careers,keka,perceptyne,,true,from catalog; test-crawl verified
+SatSure,https://satsure.keka.com/careers,keka,satsure,,true,from catalog; test-crawl verified
+Skyroot,https://skyroot.zohorecruit.in/jobs/Careers,zoho,skyroot.zohorecruit.in,,true,from catalog; test-crawl verified
+Vyapar,https://vyaparapp.keka.com/careers,keka,vyaparapp,,true,from catalog; test-crawl verified

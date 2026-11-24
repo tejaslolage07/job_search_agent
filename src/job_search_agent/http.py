@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections.abc import Callable
 from typing import Any
@@ -28,6 +29,43 @@ class BlockedError(FetchError):
 
 class RobotsDisallowed(FetchError):
     pass
+
+
+def _rfc_allows(lines: list[str], url: str) -> bool:
+    """RFC 9309: among the rules of the best-matching user-agent group, the longest matching path wins; Allow beats Disallow on a tie."""
+    parts = urlsplit(url)
+    path = (parts.path or "/") + (("?" + parts.query) if parts.query else "")
+    groups: list[tuple[list[str], list[tuple[bool, str]]]] = []
+    agents: list[str] = []
+    rules: list[tuple[bool, str]] = []
+    prev_rule = False
+    for raw in lines:
+        line = raw.split("#", 1)[0].strip()
+        if ":" not in line:
+            continue
+        k, v = (x.strip() for x in line.split(":", 1))
+        k = k.lower()
+        if k == "user-agent":
+            if prev_rule:
+                groups.append((agents, rules))
+                agents, rules, prev_rule = [], [], False
+            agents.append(v.lower())
+        elif k in ("allow", "disallow"):
+            prev_rule = True
+            rules.append((k == "allow", v))
+    groups.append((agents, rules))
+    tok = ROBOTS_TOKEN.lower()
+    chosen = next((r for a, r in groups if any(x != "*" and x in tok for x in a)), None) or next((r for a, r in groups if "*" in a), [])
+    best_len, allow = -1, True
+    for is_allow, pat in chosen:
+        if not pat:
+            continue
+        rx = re.escape(pat).replace(r"\*", ".*")
+        if rx.endswith(r"\$"):
+            rx = rx[:-2] + "$"
+        if re.match(rx, path) and (len(pat) > best_len or (len(pat) == best_len and is_allow)):
+            best_len, allow = len(pat), is_allow
+    return allow
 
 
 class PoliteClient:
@@ -77,6 +115,7 @@ class PoliteClient:
             return None
         if resp.status_code == 200:
             rp.parse(resp.text.splitlines())
+            rp._raw_lines = resp.text.splitlines()  # type: ignore[attr-defined]  # for RFC 9309 longest-match
             self._robots[origin] = rp
         elif resp.status_code >= 500:
             self._robots[origin] = None
@@ -89,7 +128,12 @@ class PoliteClient:
         if not self.respect_robots:
             return True
         rp = self._robots_for(url)
-        return rp is not None and rp.can_fetch(ROBOTS_TOKEN, url)
+        if rp is None:
+            return False
+        if rp.can_fetch(ROBOTS_TOKEN, url):
+            return True
+        # urllib applies the FIRST matching rule; RFC 9309 says the most specific (longest) rule wins.
+        return _rfc_allows(getattr(rp, "_raw_lines", []), url)
 
     def sitemaps(self, url: str) -> list[str]:
         rp = self._robots_for(url)
