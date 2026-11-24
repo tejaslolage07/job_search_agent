@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -30,11 +31,11 @@ class Locations(BaseModel):
     accept_hybrid: bool
     accept_onsite_outside_preferred: bool = True   # on unless the user turns it off
 
-
     @field_validator("preferred")
     @classmethod
     def _no_blank_entries(cls, v: list[str]) -> list[str]:
         return [x.strip() for x in v if isinstance(x, str) and x.strip()]   # a stray empty entry must not become a blank search location
+
 
 class Seniority(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -68,8 +69,18 @@ class Profile(BaseModel):
     exclude_keywords: list[str] = []
     exclude_companies: list[str] = []
     notice_period_days: int | None = None
-    work_authorization: str | None = None
+    work_authorization: Literal["Indian citizen"] | None = None   # the dashboard offers one choice; stored only, never sent to the AI
     resume_paths: dict[str, str] = {}
+
+    @field_validator("work_authorization", mode="before")
+    @classmethod
+    def _work_auth(cls, v: Any) -> Any:
+        """Blank -> None. Older free-text spellings of the one allowed value ('India citizen', 'indian citizen') are accepted and normalised."""
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        if isinstance(v, str) and re.fullmatch(r"india(n)?\s+citizen(ship)?", v.strip(), re.I):
+            return "Indian citizen"
+        return v   # anything else fails the Literal check with a clear message
 
     @field_validator("expected_ctc_lpa")
     @classmethod

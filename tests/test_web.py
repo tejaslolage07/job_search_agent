@@ -218,17 +218,18 @@ def test_catalog_select_skips_rows_without_url(home):
 def test_full_run_ats_then_match_and_job_views(home):
     c, ctl = make_client(home)
     c.put("/api/profile", json=PROFILE_BODY)
+    setup_resume(c, home)                                                                 # a phase-1 match is confirmed against the resume
     rid = c.post("/api/runs", json={"ats": {"enabled": True}, "match": True}).json()["run_id"]
     run = wait_done(c, ctl, rid)
     assert run["status"] == "finished" and run["new_count"] == 1 and not run["errors"]
     assert run["progress"]["ats"]["state"] == "done" and run["progress"]["matching"]["state"] == "done"
-    assert run["progress"]["matching"]["decided_stage1"] == 1 and run["progress"]["matching"]["decided_stage2"] == 0
+    assert run["progress"]["matching"]["decided_stage1"] == 0 and run["progress"]["matching"]["decided_stage2"] == 1
     msgs = [e["message"] for e in c.get(f"/api/runs/{rid}/events").json()]
     assert any("Acme: 1 jobs via greenhouse-json" in m for m in msgs)
     jobs = c.get("/api/jobs?bucket=all").json()
     assert jobs["total"] == 1 and jobs["jobs"][0]["company"] == "Acme" and jobs["jobs"][0]["bucket"] == "accept"
     j = c.get(f"/api/jobs/{jobs['jobs'][0]['id']}").json()
-    assert j["match"]["resume_read"] is False and j["match"]["reasons"] and j["url"].startswith("https://")
+    assert j["match"]["resume_read"] is True and j["match"]["reasons"] and j["url"].startswith("https://")
     # second run: idempotent
     rid2 = c.post("/api/runs", json={"ats": {"enabled": True}, "match": True}).json()["run_id"]
     assert wait_done(c, ctl, rid2)["new_count"] == 0
@@ -236,8 +237,8 @@ def test_full_run_ats_then_match_and_job_views(home):
 
 def test_run_requires_something_to_do_and_rejects_parallel_runs(home):
     c, ctl = make_client(home, FakeCollector([], hang=threading.Event()))
-    assert c.post("/api/runs", json={"ats": {"enabled": False}, "match": False}).status_code == 422
     c.put("/api/profile", json=PROFILE_BODY)
+    assert c.post("/api/runs", json={"ats": {"enabled": False}, "match": False}).status_code == 422
     assert c.post("/api/runs", json={"ats": {"enabled": False}, "linkedin": {"enabled": True}, "match": False}).status_code == 422  # no queries
     body = {"ats": {"enabled": False}, "match": False, "linkedin": {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}}
     rid = c.post("/api/runs", json=body).json()["run_id"]
@@ -259,7 +260,6 @@ def test_linkedin_stage_ingests_and_keeps_duplicates_separate(home):
     assert {j["source"] for j in acme} == {"ats", "linkedin"}  # same company, both versions shown
     assert all(j["company"] != "OtherCo [LinkedIn]" for j in jobs)  # suffix never shown to the user
     assert c.get("/api/jobs?bucket=all&source=linkedin").json()["total"] == 2
-    st = c.get("/api/state").json()
     cut = c.get("/api/jobs?bucket=all").json()["breakdown"]  # the company and job-portal cuts shown on the Jobs page
     assert dict(cut["companies"])["Acme"] == len(acme) and sum(n for _, n in cut["sources"]) == len(jobs)
     assert {k for k, _ in cut["sources"]} == {"ats", "linkedin"}
@@ -269,6 +269,7 @@ def test_linkedin_stage_ingests_and_keeps_duplicates_separate(home):
     assert c.get("/api/jobs?bucket=all&day=yesterday").status_code == 422
     only = c.get("/api/jobs?bucket=all&company=Acme").json()
     assert only["total"] == len(acme) and all(j["company"] == "Acme" for j in only["jobs"])  # clicking a company on the Dashboard opens its jobs
+    st = c.get("/api/state").json()
     assert st["linkedin"]["requests_today"] == 5
 
 
@@ -285,8 +286,8 @@ def test_ats_crawl_never_removes_linkedin_jobs(home):
 
 def test_linkedin_block_keeps_partial_results_and_does_not_block_later_runs(home):
     c, ctl = make_client(home, FakeCollector([card(1, "Acme")], code=2, blocked="HTTP 429 ..."))
-    li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
     c.put("/api/profile", json=PROFILE_BODY)
+    li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
     body = {"ats": {"enabled": False}, "match": False, "linkedin": li}
     run = wait_done(c, ctl, c.post("/api/runs", json=body).json()["run_id"])
     assert run["progress"]["linkedin"]["state"] == "blocked" and run["new_count"] == 1  # partial results kept
@@ -310,8 +311,8 @@ def test_linkedin_defaults_come_from_profile(home):
 # ---- schedules -------------------------------------------------------------------------------------------------------
 def test_schedule_minimum_two_hours(home):
     c, _ = make_client(home)
-    cfg = {"ats": {"enabled": True}, "match": False}
     c.put("/api/profile", json=PROFILE_BODY)
+    cfg = {"ats": {"enabled": True}, "match": False}
     assert c.post("/api/schedules", json={"name": "x", "interval_minutes": 60, "config": cfg}).status_code == 422
     assert c.post("/api/schedules", json={"name": "x", "interval_minutes": 119, "config": cfg}).status_code == 422
     r = c.post("/api/schedules", json={"name": "every 2h", "interval_minutes": 120, "config": cfg})
@@ -343,8 +344,8 @@ def test_scheduler_fires_when_due_and_advances_next_run(home):
 def test_scheduler_skips_while_a_run_is_active(home):
     hang = threading.Event()
     c, ctl = make_client(home, FakeCollector([], hang=hang))
-    li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
     c.put("/api/profile", json=PROFILE_BODY)
+    li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
     rid = c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li}).json()["run_id"]
     c.post("/api/schedules", json={"name": "s", "interval_minutes": 120, "config": {"ats": {"enabled": True}, "match": False}})
     assert c.app.state.scheduler.tick(datetime.now(UTC) + timedelta(hours=3)) is None
@@ -371,8 +372,8 @@ def test_job_user_states_and_hidden_filter(home):
 
 def test_sse_stream_ends_with_final_state(home):
     c, ctl = make_client(home)
-    rid = c.post("/api/runs", json={"ats": {"enabled": True}, "match": False}).json()["run_id"]
     c.put("/api/profile", json=PROFILE_BODY)
+    rid = c.post("/api/runs", json={"ats": {"enabled": True}, "match": False}).json()["run_id"]
     ctl.wait(20)
     with c.stream("GET", f"/api/runs/{rid}/stream") as r:
         text = "".join(r.iter_text())
@@ -388,8 +389,8 @@ def test_run_log_explains_why_each_search_stopped(home):
             return super().run(cfg, on_progress)
 
     c, ctl = make_client(home, Collector([card(1)]))
-    li = {"enabled": True, "queries": [{"keyword": "software engineer", "location": "India"}]}
     c.put("/api/profile", json=PROFILE_BODY)
+    li = {"enabled": True, "queries": [{"keyword": "software engineer", "location": "India"}]}
     rid = c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li}).json()["run_id"]
     wait_done(c, ctl, rid)
     msgs = [e["message"] for e in c.get(f"/api/runs/{rid}/events").json()]
@@ -409,8 +410,8 @@ def test_unknown_or_incomplete_collector_messages_do_not_fail_the_run(home):
             return super().run(cfg, on_progress)
 
     c, ctl = make_client(home, Collector([card(1)]))
-    li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
     c.put("/api/profile", json=PROFILE_BODY)
+    li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
     run = wait_done(c, ctl, c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li}).json()["run_id"])
     assert run["status"] == "finished" and not run["errors"] and run["new_count"] == 1
 
@@ -460,8 +461,8 @@ def test_long_backoff_waits_are_explained_in_the_run_log(home):
             return super().run(cfg, on_progress)
 
     c, ctl = make_client(home, Collector([card(1)]))
-    li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
     c.put("/api/profile", json=PROFILE_BODY)
+    li = {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}
     rid = c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li}).json()["run_id"]
     wait_done(c, ctl, rid)
     ev = c.get(f"/api/runs/{rid}/events").json()
@@ -473,8 +474,8 @@ def test_long_backoff_waits_are_explained_in_the_run_log(home):
 @pytest.mark.parametrize("workers,status", [(1, 200), (6, 200), (7, 422), (8, 422), (10, 422), (12, 422), (0, 422)])
 def test_parallel_requests_setting_accepts_1_to_6(home, workers, status):
     c, ctl = make_client(home, FakeCollector([card(1)]))
-    li = {"enabled": True, "workers": workers, "queries": [{"keyword": "x", "location": "India"}]}
     c.put("/api/profile", json=PROFILE_BODY)
+    li = {"enabled": True, "workers": workers, "queries": [{"keyword": "x", "location": "India"}]}
     r = c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li})
     assert r.status_code == status
     ctl.wait(10)
@@ -503,22 +504,22 @@ AI_BODY = {"ats": {"enabled": False}, "match": True,
            "linkedin": {"enabled": True, "queries": [{"keyword": "x", "location": "India"}]}}
 
 
-def test_a_run_matches_with_the_ai_and_uses_the_resume_only_for_ambiguous_jobs(home):
+def test_a_run_matches_with_the_ai_and_every_match_or_unclear_job_gets_the_resume_check(home):
     from fake_openai import FakeOpenAI
     fake = FakeOpenAI(delay=0.05)
-    cards = [card(i, f"Co{i}", "Data Analyst PHASE1_AMB") for i in range(1, 7)] + [card(10, "Acme", "Backend Engineer")]
+    cards = [card(i, f"Co{i}", "Data Analyst PHASE1_AMB") for i in range(1, 7)] + [card(10, "Acme", "Backend Engineer"), card(11, "Zeta", "Backend Engineer VERDICT_NO")]
     c, ctl = make_client(home, FakeCollector(cards), openai=fake)
     c.put("/api/profile", json=PROFILE_BODY)
     setup_resume(c, home)
     run = wait_done(c, ctl, c.post("/api/runs", json=AI_BODY).json()["run_id"])
     m = run["progress"]["matching"]
     assert run["status"] == "finished" and not run["errors"] and m["state"] == "done"
-    assert (m["llm_done"], m["llm_total"]) == (7, 7) and len(fake.requests) == 7 + 6          # all 7 asked about the profile; the 6 ambiguous ones then about the resume
-    assert (m["decided_stage1"], m["decided_stage2"]) == (1, 6) and m["buckets"] == {"accept": 7}
-    assert (m["run_profile"], m["run_resume"]) == (1, 6)                                                      # this run's split, shown on the Runs tab
+    assert (m["llm_done"], m["llm_total"]) == (8, 8) and len(fake.requests) == 8 + 7          # all 8 asked about the profile; the 7 that matched or were unclear then about the resume
+    assert (m["decided_stage1"], m["decided_stage2"]) == (1, 7) and m["buckets"] == {"accept": 7, "reject": 1}
+    assert (m["run_profile"], m["run_resume"]) == (1, 7)                                                      # this run's split, shown on the Runs tab
     assert fake.peak() <= 8 and all(r["auth"] == f"Bearer {KEY}" for r in fake.requests)
     msgs = [e["message"] for e in c.get(f"/api/runs/{run['id']}/events").json()]
-    assert any("AI matcher: model gpt-6-luna, 8 calls at a time" in x for x in msgs) and any("Checked 7 job(s) this run: 1 decided from the profile details, 6 needed the resume" in x for x in msgs)
+    assert any("AI matcher: model gpt-6-luna, 8 calls at a time" in x for x in msgs) and any("Checked 8 job(s) this run: 1 decided from the profile details, 7 needed the resume" in x for x in msgs)
     jobs = c.get("/api/jobs?bucket=all").json()["jobs"]
     ai = [j for j in jobs if j["title"].startswith("Data Analyst")]
     assert len(ai) == 6 and all(j["bucket"] == "accept" and j["stage_decided"] == 2 and j["resume_read"] for j in ai)
@@ -526,15 +527,17 @@ def test_a_run_matches_with_the_ai_and_uses_the_resume_only_for_ambiguous_jobs(h
     assert detail["method"] == "llm-resume" and any(r["rule"] == "llm_resume" and "python" in r["detail"] for r in detail["reasons"])
     assert [x["verdict"] for x in detail["inputs"]["llm"]["calls"]] == ["ambiguous", "match"]
     split = c.get("/api/jobs?bucket=all").json()
-    assert split["phases"] == {"profile": 1, "resume": 6}                                                      # the Jobs tab shows the same split
+    assert split["phases"] == {"profile": 1, "resume": 7}                                                      # the Jobs tab shows the same split
     only_resume = c.get("/api/jobs?bucket=all&phase=resume").json()
-    assert only_resume["total"] == 6 and {j["stage_decided"] for j in only_resume["jobs"]} == {2} and only_resume["phases"] == split["phases"]
+    assert only_resume["total"] == 7 and {j["stage_decided"] for j in only_resume["jobs"]} == {2} and only_resume["phases"] == split["phases"]
     assert c.get("/api/jobs?bucket=all&phase=profile").json()["total"] == 1 and c.get("/api/jobs?bucket=all&phase=nope").status_code == 422
     clear = next(j for j in jobs if j["title"] == "Backend Engineer")
-    assert clear["stage_decided"] == 1 and not clear["resume_read"]
+    assert clear["stage_decided"] == 2 and clear["resume_read"] and clear["bucket"] == "accept"      # a phase-1 match was confirmed by the resume
+    rejected = next(j for j in jobs if j["title"] == "Backend Engineer VERDICT_NO")
+    assert rejected["stage_decided"] == 1 and not rejected["resume_read"] and rejected["bucket"] == "reject"   # a phase-1 no match is final: no resume sent
     # a second run: nothing changed, so nobody is asked again
     run2 = wait_done(c, ctl, c.post("/api/runs", json=AI_BODY).json()["run_id"])
-    assert run2["progress"]["matching"]["newly_scored"] == 0 and len(fake.requests) == 13
+    assert run2["progress"]["matching"]["newly_scored"] == 0 and len(fake.requests) == 15
 
 
 def test_matching_needs_the_key_there_is_no_non_ai_fallback_and_it_says_so(home, monkeypatch):
@@ -559,13 +562,13 @@ def test_ai_failures_in_a_run_leave_the_job_unchecked_and_are_retried_next_run(h
     setup_resume(c, home)
     run = wait_done(c, ctl, c.post("/api/runs", json=AI_BODY).json()["run_id"])
     m = run["progress"]["matching"]
-    assert m["buckets"] == {"accept": 1, "review": 1} and len(fake.requests) == 2
+    assert m["buckets"] == {"accept": 1, "review": 1} and len(fake.requests) == 3        # the failed job: 1 request; the other: phase 1 + the resume check
     assert any("1 AI check(s) failed" in e["message"] for e in c.get(f"/api/runs/{run['id']}/events").json())
     jobs = {j["title"]: j for j in c.get("/api/jobs?bucket=all").json()["jobs"]}
     assert jobs["Data Analyst FAILME"]["bucket"] == "review" and jobs["Data Analyst"]["bucket"] == "accept"
     fake.requests.clear()
     run2 = wait_done(c, ctl, c.post("/api/runs", json=AI_BODY).json()["run_id"])
-    assert len(fake.requests) == 1 and run2["progress"]["matching"]["newly_scored"] == 1      # only the failed job is asked again
+    assert [r["phase"] for r in fake.requests] == [1] and run2["progress"]["matching"]["newly_scored"] == 1      # only the failed job is asked again (its phase 1 fails again)
 
 
 def test_rematch_reruns_the_ai_for_exactly_the_selected_jobs_even_when_nothing_changed(home):
@@ -585,7 +588,7 @@ def test_rematch_reruns_the_ai_for_exactly_the_selected_jobs_even_when_nothing_c
     assert r.status_code == 200 and r.json()["jobs"] == 1
     run = wait_done(c, ctl, r.json()["run_id"])
     assert run["kind"] == "rematch" and run["status"] == "finished" and run["progress"]["matching"]["newly_scored"] == 1 and "ats" not in run["progress"]
-    assert len(fake.requests) == 1                                                                                      # one job, one phase-1 call; no discovery, nobody else re-asked
+    assert [r["phase"] for r in fake.requests] == [1, 2]                                                                # one job: phase 1 then the resume check; no discovery, nobody else re-asked
     msgs = [e["message"] for e in c.get(f"/api/runs/{run['id']}/events").json()]
     assert any("Re-running the AI matching for 1 selected job(s)" in m for m in msgs)
 
@@ -593,11 +596,11 @@ def test_rematch_reruns_the_ai_for_exactly_the_selected_jobs_even_when_nothing_c
     c.put("/api/profile", json={**PROFILE_BODY, "expected_ctc_lpa": {"min": 24, "target": 35}})
     fake.requests.clear()
     run2 = wait_done(c, ctl, c.post("/api/jobs/rematch", json={"ids": [pick]}).json()["run_id"])
-    assert len(fake.requests) == 1 and "minimum 24 LPA" in json.dumps(fake.requests[0]["raw_body"]) and run2["status"] == "finished"
+    assert [r["phase"] for r in fake.requests] == [1, 2] and "minimum 24 LPA" in json.dumps(fake.requests[0]["raw_body"]) and run2["status"] == "finished"
     conn = store.connect(home / "data" / "job_search_agent.db")
     n = {r["job_id"]: r["n"] for r in conn.execute("SELECT job_id, COUNT(*) n FROM match_results GROUP BY job_id")}
     assert n[pick] == 3 and all(v == 1 for k, v in n.items() if k != pick)                                              # history kept: three results for the re-run job, one for the rest
-    assert conn.execute("SELECT COUNT(*) FROM llm_calls WHERE job_id=?", (pick,)).fetchone()[0] == 3
+    assert conn.execute("SELECT COUNT(*) FROM llm_calls WHERE job_id=?", (pick,)).fetchone()[0] == 6        # (phase 1 + phase 2) x three results
 
 
 def test_rematch_rejects_bad_requests_and_a_run_in_progress(home):
@@ -626,7 +629,7 @@ def test_a_missing_resume_is_reported_clearly_when_jobs_need_the_resume_check(ho
     c, ctl = make_client(home, FakeCollector(cards))
     c.put("/api/profile", json=PROFILE_BODY)                                   # note: no resume uploaded, so resume_paths is empty
     run = wait_done(c, ctl, c.post("/api/runs", json=AI_BODY).json()["run_id"])
-    assert run["progress"]["matching"]["buckets"] == {"accept": 1, "review": 3}
+    assert run["progress"]["matching"]["buckets"] == {"review": 4}                   # the 3 unclear jobs AND the phase-1 match all need the resume
     err = next(e for e in run["errors"] if e["company"] == "(AI check)")["error"]
     assert "4 job(s) were left 'Not checked'" in err and "no resume_paths configured" in err and "Upload your resume on the Profile tab" in err
 
@@ -667,3 +670,36 @@ def test_blank_preferred_locations_never_become_blank_search_locations(home):
     li = {"enabled": True, "max_listings": 10000, "queries": [{"keyword": "x", "location": "India"}]}
     assert c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": {**li, "max_listings": 10001}}).status_code == 422
     assert c.post("/api/runs", json={"ats": {"enabled": False}, "match": False, "linkedin": li}).status_code == 200
+
+
+def test_jobs_without_a_description_are_hidden_from_the_lists_and_counts_even_with_an_old_title_only_verdict(home):
+    c, _ = make_client(home)
+    c.put("/api/profile", json=PROFILE_BODY)
+    conn = store.connect(home / "data" / "job_search_agent.db")
+    conn.execute("INSERT INTO companies(name, careers_url, ats_type, active) VALUES('Acme','https://x','linkedin',0)")
+    for i, desc in enumerate(["", "Python role", None, "  "], start=1):
+        conn.execute("INSERT INTO jobs(company_id, external_id, url, title, location, description_text, description_hash, first_seen_at, last_seen_at, status, source) "
+                     "VALUES(1,?,?,?,?,?,'h','2026-11-18T00:00:00+05:30','2026-11-18T00:00:00+05:30','active','linkedin')", (f"e{i}", f"https://x/{i}", f"Job {i}", "Bengaluru", desc))
+        store.insert_match(conn, None, i, stage_decided=1, stage1_score=None, stage1_confidence=None, final_score=0, bucket="reject", reasons_json=json.dumps({"reasons": [], "inputs": {}}),
+                           resume_variant=None, resume_hash=None, profile_hash="p", matching_config_hash="c", method="llm-profile", job_hash="j")
+    conn.commit()
+    listed = c.get("/api/jobs?bucket=all").json()
+    assert [j["title"] for j in listed["jobs"]] == ["Job 2"] and listed["counts"] == {"accept": 0, "review": 0, "reject": 1}      # only the job that has a description
+    assert c.get("/api/state").json()["jobs"]["reject"] == 1
+
+
+def test_the_run_says_how_many_jobs_are_waiting_for_a_description_and_explains_linkedins_1000_limit(home):
+    class LimitedCollector(FakeCollector):
+        def run(self, cfg, on_progress):   # a search that hit LinkedIn's limit, with the listings saved but no descriptions
+            code, summary = super().run(cfg, lambda e: None)
+            Path(cfg["out"]).write_text("")                                          # no description fetched
+            on_progress({"stage": "search_done", "keyword": "Forward Deployed Engineer", "location": "India", "found": 1000, "reason": "linkedin_limit", "unique": 1000})
+            return code, summary
+    c, ctl = make_client(home, LimitedCollector([card(i, f"Co{i}", "Backend Engineer") for i in range(1, 4)]))
+    c.put("/api/profile", json=PROFILE_BODY)
+    setup_resume(c, home)
+    run = wait_done(c, ctl, c.post("/api/runs", json=AI_BODY).json()["run_id"])
+    msgs = [e["message"] for e in c.get(f"/api/runs/{run['id']}/events").json()]
+    assert any("reached LinkedIn's limit of 1,000 results per search" in m and "several different searches" in m for m in msgs)
+    assert run["progress"]["matching"]["waiting"] == 3 and any("3 job(s) have no description yet and were not judged" in m for m in msgs)
+    assert c.get("/api/jobs?bucket=all").json()["total"] == 0                       # nothing was judged on a title alone

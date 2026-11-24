@@ -142,8 +142,8 @@ def test_concurrency_is_four_and_results_are_shown_and_saved(kit, capsys):
     assert "concurrency: configured 4, peak jobs in flight 4" in out
     assert out.count("| MATCH - ") == 5 and out.count("| NO MATCH - ") == 2 and out.count("FAILED after") == 1
     assert "final verdicts: match 5, no match 2" in out and "succeeded: 7 | failed: 1" in out
-    assert "phase 1 answered: match 4, no match 1, ambiguous 2  ->  2 went on to the resume check (9 API calls in total)" in out
-    assert "MATCH - strongest parameter: python  [profile details]" in out and "NO MATCH - strongest parameter: golang  [profile details]" in out
+    assert "phase 1 answered: match 4, no match 1, ambiguous 2  ->  6 went on to the resume check (13 API calls in total)" in out
+    assert "MATCH - strongest parameter: python  [profile said match -> resume]" in out and "NO MATCH - strongest parameter: golang  [profile details]" in out
     assert "[profile said ambiguous -> resume]" in out
     assert "strongest parameter behind 'match': python x5" in out and "strongest parameter behind 'no match': golang x2" in out
     rows = results(kit)
@@ -151,25 +151,33 @@ def test_concurrency_is_four_and_results_are_shown_and_saved(kit, capsys):
     assert {r["final_verdict"] for r in rows.values() if r["ok"]} == {"match", "no match"}                  # never ambiguous
     assert (rows[7]["phase1_verdict"], rows[7]["final_verdict"], rows[7]["decided_by_phase"], rows[7]["api_calls"]) == ("ambiguous", "match", 2, 2)
     assert (rows[8]["phase1_verdict"], rows[8]["final_verdict"], rows[8]["decided_by_phase"]) == ("ambiguous", "no match", 2)
-    assert (rows[1]["phase1_verdict"], rows[1]["final_verdict"], rows[1]["decided_by_phase"], rows[1]["api_calls"], rows[1]["stored_result"]) == ("match", "match", 1, 1, "match")
-    assert all(r["tokens_in"] == 1000 and r["reasoning_tokens"] == 5 for r in rows.values() if r["ok"] and r["api_calls"] == 1)
+    assert (rows[1]["phase1_verdict"], rows[1]["final_verdict"], rows[1]["decided_by_phase"], rows[1]["api_calls"], rows[1]["stored_result"]) == ("match", "match", 2, 2, "match")     # a phase-1 match is confirmed by the resume
+    assert all(r["tokens_in"] == 1000 and r["reasoning_tokens"] == 5 for r in rows.values() if r["ok"] and r["api_calls"] == 1) and rows[9]["api_calls"] == 1      # job 9: a phase-1 no match, one call only
     assert (kit["out"] / "results.csv").exists() and len(list((kit["out"] / "prompts").glob("job_*.txt"))) == 8
 
 
 def test_settings_from_matching_yaml_reach_the_request_and_model_precedence(kit, monkeypatch):
+    def last_two():   # one job = a phase-1 request then a phase-2 request (a match is confirmed by the resume)
+        r = kit["fake"].requests
+        assert [x["phase"] for x in r[-2:]] == [1, 2]
+        return r[-2]["body"], r[-1]["body"]
+
     assert run_kit(kit, "--ids", "1") == 0
-    body = kit["fake"].requests[-1]["body"]
-    assert body["model"] == "gpt-6-luna" and body["reasoning_effort"] == "none" and set(body) == {"model", "messages", "reasoning_effort", "prompt_cache_options"}   # phase 1: no thinking + explicit caching are the shipped defaults
+    p1, p2 = last_two()
+    assert p1["model"] == "gpt-6-luna" and p1["reasoning_effort"] == "none" and set(p1) == {"model", "messages", "reasoning_effort", "prompt_cache_options"}   # phase 1: no thinking + explicit caching
+    assert p2["reasoning_effort"] == "low"                                                                                                                  # phase 2: a little thinking
     set_llm(kit, reasoning_effort="")
-    assert run_kit(kit, "--ids", "1") == 0 and "reasoning_effort" not in kit["fake"].requests[-1]["body"]      # blank = the model's own default: nothing extra is sent
-    set_llm(kit, reasoning_effort="low", max_output_tokens=800)
+    assert run_kit(kit, "--ids", "1") == 0 and "reasoning_effort" not in last_two()[0]      # blank = the model's own default: nothing extra is sent
+    set_llm(kit, reasoning_effort="low", resume_reasoning_effort="high", max_output_tokens=800)
     assert run_kit(kit, "--ids", "1") == 0
-    body = kit["fake"].requests[-1]["body"]
-    assert body["reasoning_effort"] == "low" and body["max_completion_tokens"] == 800
-    assert run_kit(kit, "--ids", "1", "--reasoning-effort", "high") == 0 and kit["fake"].requests[-1]["body"]["reasoning_effort"] == "high"   # flag beats the file
+    p1, p2 = last_two()
+    assert p1["reasoning_effort"] == "low" and p2["reasoning_effort"] == "high" and p1["max_completion_tokens"] == p2["max_completion_tokens"] == 800
+    assert run_kit(kit, "--ids", "1", "--reasoning-effort", "medium", "--resume-reasoning-effort", "none") == 0
+    p1, p2 = last_two()
+    assert p1["reasoning_effort"] == "medium" and p2["reasoning_effort"] == "none"          # the flags beat the file, one per phase
     monkeypatch.setenv("OPENAI_MODEL", "model-from-env")
-    assert run_kit(kit, "--ids", "1") == 0 and kit["fake"].requests[-1]["body"]["model"] == "model-from-env"                  # .env beats matching.yaml
-    assert run_kit(kit, "--ids", "1", "--model", "model-from-cli") == 0 and kit["fake"].requests[-1]["body"]["model"] == "model-from-cli"  # --model beats both
+    assert run_kit(kit, "--ids", "1") == 0 and last_two()[0]["model"] == "model-from-env"                  # .env beats matching.yaml
+    assert run_kit(kit, "--ids", "1", "--model", "model-from-cli") == 0 and last_two()[1]["model"] == "model-from-cli"   # --model beats both
 
 
 def test_one_failed_job_does_not_stop_the_rest_and_the_reason_is_shown(kit, capsys):
@@ -210,7 +218,7 @@ def test_a_rate_limit_is_retried_and_counted_in_the_summary(kit, capsys):
     assert run_kit(kit, "--ids", "1,4,5") == 0
     out = capsys.readouterr().out
     assert "succeeded: 3 | failed: 0" in out and "rate-limit / server-error retries: 1" in out
-    assert results(kit)[4]["retries"] == 1 and len(kit["fake"].requests) == 4   # 3 jobs + 1 repeated attempt
+    assert results(kit)[4]["retries"] == 1 and len(kit["fake"].requests) == 7   # 3 jobs x (phase 1 + phase 2) + 1 repeated attempt
 
 
 def test_cost_is_estimated_only_when_prices_are_filled_in(kit, capsys):
@@ -221,7 +229,7 @@ def test_cost_is_estimated_only_when_prices_are_filled_in(kit, capsys):
     settings = kit["tmp"] / "priced.yaml"
     settings.write_text(yaml.safe_dump(s))
     assert run_kit(kit, "--ids", "1", "--settings", str(settings)) == 0
-    assert "estimated cost: $0.0010 " in capsys.readouterr().out      # 1000 in * $1/M + 12 out * $4/M = 0.001048
+    assert "estimated cost: $0.0021 " in capsys.readouterr().out      # two calls (phase 1 and the resume check): 2 x (1000 in * $1/M + 12 out * $4/M) = 0.0021
 
 
 # ---------------------------------------------------------------- the key and .env ----------------------------------------------------------

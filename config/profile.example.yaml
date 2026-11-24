@@ -27,7 +27,7 @@ exclude_keywords: [security clearance, "clearance required"]
 exclude_companies: []
 
 notice_period_days: 30           # stored only; never sent to the AI
-work_authorization: India citizen  # stored only; never sent to the AI
+work_authorization: Indian citizen  # the only allowed value (or leave it out); stored only, never sent to the AI
 
 resume_paths:                    # variant name -> PDF (absolute, ~/..., or relative to config/). Only sent to the AI in phase 2 (when the profile details alone cannot decide a job).
   backend: ~/Documents/resume_backend.pdf

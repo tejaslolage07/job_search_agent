@@ -165,7 +165,9 @@ class RunController:
             stage = e.get("stage")
             if stage == "search_done":
                 what = f"\"{e.get('keyword')}\" / {e.get('location')}"
-                if e.get("reason") == "share_reached":
+                if e.get("reason") == "linkedin_limit":
+                    ev("linkedin", f"Search {what} reached LinkedIn's limit of 1,000 results per search ({e.get('found', 0)} new listings). Use several different searches to collect more")
+                elif e.get("reason") == "share_reached":
                     ev("linkedin", f"Search {what} collected its share of the listing limit ({e.get('found', 0)} new listings)")
                 else:
                     ev("linkedin", f"Search {what} found everything LinkedIn had ({e.get('found', 0)} new listings)")
@@ -243,9 +245,14 @@ class RunController:
         st = {"state": "running", "done": 0, "total": len(rows), "newly_scored": 0}
         prog("matching", st)
 
-        ev("matching", f"AI matcher: model {engine.llm.client.model}, {cfg.llm.concurrency} calls at a time (job + profile details; the resume only for unclear jobs; never pay)")
+        ev("matching", f"AI matcher: model {engine.llm.client.model}, {cfg.llm.concurrency} calls at a time (job + profile details; the resume for every job the profile check does not reject; never pay)")
 
         def on_progress(e: dict[str, Any]) -> None:
+            if e["event"] == "waiting":
+                st["waiting"] = e["count"]
+                ev("matching", f"{e['count']} job(s) have no description yet and were not judged (LinkedIn descriptions are fetched after the search). They are judged once the text arrives")
+                prog("matching", st)
+                return
             if e["event"] == "llm":
                 st.update(llm_done=e["done"], llm_total=e["total"])
             else:
@@ -255,7 +262,7 @@ class RunController:
         n = pipeline.score_jobs(conn, engine, profile, cfg, rows, run_id, force=config.rematch_job_ids is not None, on_progress=on_progress,
                                 cancelled=self._cancel.is_set)
         dist = conn.execute("SELECT m.bucket, m.stage_decided, COUNT(*) AS n FROM match_results m JOIN jobs j ON j.id=m.job_id "
-                            "WHERE j.status='active' AND m.id IN (SELECT MAX(id) FROM match_results GROUP BY job_id) "
+                            "WHERE j.status='active' AND TRIM(COALESCE(j.description_text, '')) <> '' AND m.id IN (SELECT MAX(id) FROM match_results GROUP BY job_id) "
                             "GROUP BY m.bucket, m.stage_decided").fetchall()
         st.update(state="cancelled" if self._cancel.is_set() else "done", newly_scored=n,
                   )

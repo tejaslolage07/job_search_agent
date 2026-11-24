@@ -115,7 +115,7 @@ def match(ctx: typer.Context,
           fmt: Annotated[str, typer.Option("--format", help="table|json|md")] = "table",
           limit: Annotated[int | None, typer.Option(help="Show at most N rows")] = None,
           rescore: Annotated[bool, typer.Option("--rescore", help="Ignore cached results")] = False) -> None:
-    """Match active jobs with the AI (profile check, then a resume check for unclear ones; needs OPENAI_API_KEY in .env) and rank newest-first."""
+    """Match active jobs with the AI (profile check, then a resume check for every job it does not reject; needs OPENAI_API_KEY in .env) and rank newest-first."""
     c: Ctx = ctx.obj
     if bucket not in (None, "accept", "review", "reject", "all"):
         raise _fail("--bucket must be accept, review, reject or all")

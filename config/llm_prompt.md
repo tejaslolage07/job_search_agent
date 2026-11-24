@@ -1,11 +1,6 @@
 # Prompt for phase 1 of the matcher (job + profile details)
 
-This is the exact prompt the matcher sends for every job. The test kit (llm_test_kit/run_test.py) uses the same file. It is read on every run, so edit and re-run.
-Anything above the first SYSTEM heading is ignored. Placeholders (filled per job): {{job_title}} {{company}} {{location}} {{salary}} {{job_description}} {{profile}}
-
-Reply format: `match: django`, `no match: seniority` or `ambiguous` (the word is the strongest parameter). If you change the verdict words, update VERDICTS in src/job_search_agent/matching/llm.py too.
-Jobs answered `ambiguous` go to phase 2 (config/llm_prompt_resume.md), which compares the job with your resume.
-{{profile}} is filled from Profile.details_text(): it includes your current and expected pay (and the USD rate), but not notice period or work authorization.
+Reply format: `match: django`, `no match: seniority` or `ambiguous`. A `no match` here is final. A `match` or an `ambiguous` goes on to phase 2 (config/llm_prompt_resume.md), which compares the job with your resume and has the last word.
 
 COST NOTE: the SYSTEM text plus the profile (everything above {{cache_here}}) is identical for every job, so OpenAI caches it once and reads it back at about a tenth of the
 normal input price. Rules: keep {{cache_here}} right after the shared part, keep every per-job placeholder below it, and keep the shared part (SYSTEM + profile) above about
@@ -26,7 +21,7 @@ ambiguous
 - ambiguous: it could go either way, or only the candidate's actual experience (the resume) could settle it, or the description is too vague.
 
 A preferred location can be a city or a whole country (for example India means any city in India). If the profile lists no preferred locations, any location is acceptable and location is never a reason for no match.
-If the profile lists no must-have skills, treat its nice-to-have skills as the skills it wants.
+If the profile lists no must-have skills, there is no bound on skills, however, if nice-to-have skills match, it is a strong sign for match.
 
 Worked examples (judge the same way; the profile in the user message decides what is acceptable):
 
@@ -39,10 +34,10 @@ Worked examples (judge the same way; the profile in the user message decides wha
 - Job needs a different core stack than the profile's must-have skills and never mentions them: no match: skills
 - Job mentions a dealbreaker word, for example a clearance requirement the profile lists: no match: clearance
 - Posted pay tops out below the profile's expected minimum, after converting currency: no match: pay
-- Role, level, city and must-have skills all line up and nothing breaks the profile: match: python (use the real skill)
+- Role, level, city and must-have skills (or nice-to-have skills, if no must-haves are listed) all line up and nothing breaks the profile: match: python (use the real skill)
 - Title and city fit but the description is vague, or fit depends on how deep the candidate's experience goes: ambiguous
 - Skills fit but the years asked are just above the profile's limit, or the location is only partly clear: ambiguous
-- Job names the profile's must-have skills as core requirements and the level and city fit: lean match, not ambiguous.
+- Job names the profile's must-have skills (or nice-to-have skills, if no must-haves are listed) as core requirements and the level and city fit: lean match, not ambiguous.
 - Job lists the must-have skills only as nice-to-have, or in a long wish list beside many other stacks: ambiguous unless something else breaks the profile.
 - Job is an internship, apprenticeship or trainee role and the profile wants junior to mid roles: judge the stated years and duties, not the word intern alone.
 - Job title sounds senior (Lead, Senior, Sr) but the years asked are within the profile's limit: ambiguous, because the title alone is not enough.

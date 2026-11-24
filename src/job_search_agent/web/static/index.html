@@ -439,7 +439,7 @@ async function viewDiscover() {
       h("h3", {}, "How much to fetch"),
       h("div", { class: "grid" },
         field("Posted within", h("select", { onchange: (e) => (liSettings.window = e.target.value) }, opt([["24hr", "last 24 hours"], ["past week", "past week"], ["past month", "past month"]], liSettings.window))),
-        field("Max listings per run (shared across your searches)", h("input", { type: "number", min: 1, max: 10000, value: liSettings.max_listings, oninput: (e) => { liSettings.max_listings = +e.target.value; } })),
+        field("Max listings per run (shared across your searches; LinkedIn returns at most 1,000 per search, so use several searches for more)", h("input", { type: "number", min: 1, max: 10000, value: liSettings.max_listings, oninput: (e) => { liSettings.max_listings = +e.target.value; } })),
         field("Parallel requests (searching and descriptions)", h("select", { onchange: (e) => { liSettings.workers = +e.target.value; drawLi(); } }, [1, 2, 3, 4, 6].map((n) => h("option", { value: n, selected: n === liSettings.workers }, n))))));
   };
   const liToggle = chk("srcLi", src.linkedin, "LinkedIn jobs (search + descriptions)");
@@ -512,6 +512,7 @@ async function viewRuns() {
     if (p.matching) { const m = p.matching; parts.push(panel("Matching", m.state === "skipped" ? h("div", { class: "warn" }, m.reason) : h("div", {},
       h("div", { class: "small" }, `${m.done} of ${m.total} jobs checked · ${m.newly_scored} newly scored`), bar(m.done, m.total),
       m.llm_total ? h("div", {}, h("div", { class: "small", style: "margin-top:8px" }, `AI checks ${m.llm_done || 0} of ${m.llm_total}`), bar(m.llm_done || 0, m.llm_total)) : null,
+      m.waiting ? h("div", { class: "small warn", style: "margin-top:6px" }, `${m.waiting} job(s) have no description yet and were not judged (they are judged once the text arrives)`) : null,
       ...(m.buckets ? [h("div", { class: "small muted", style: "margin-top:6px" }, `Matched ${m.buckets.accept || 0} · not a fit ${m.buckets.reject || 0}${m.buckets.review ? ` · AI check failed ${m.buckets.review} (retried next run)` : ""}`),
         m.run_profile !== undefined ? h("div", { class: "small", style: "margin-top:4px" }, h("b", {}, "This run: "), `${m.run_profile} resolved from profile details · ${m.run_resume} needed the resume check`) : null,
         m.run_profile !== undefined ? h("div", { class: "small muted" }, `All active jobs: ${m.decided_stage1} resolved from profile details · ${m.decided_stage2} resume-checked`) : null] : [])))); }

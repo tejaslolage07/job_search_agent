@@ -21,7 +21,7 @@ from .sources.detect import detect_ats, detect_from_text
 
 log = logging.getLogger(__name__)
 
-TOKEN_ATS = {"greenhouse", "lever", "ashby"}
+TOKEN_ATS = {"greenhouse", "lever", "ashby", "keka", "zoho", "oracle"}
 
 
 @dataclass
@@ -154,14 +154,21 @@ def score_jobs(conn: sqlite3.Connection, engine: MatchEngine, profile: Profile, 
     ph, ch, scored = profile.matching_hash(), cfg.config_hash(), 0
     emit = on_progress or (lambda e: None)
     todo: list[tuple[sqlite3.Row, str]] = []
+    waiting = 0
     for row in rows:
+        if not (row["description_text"] or "").strip():   # nothing to judge yet (LinkedIn listings before their description is fetched): it is judged once the text arrives
+            waiting += 1
+            continue
         jh = job_hash(row)
         last = store.latest_match(conn, row["id"])
         if (last and not force and last["job_hash"] == jh and last["profile_hash"] == ph and last["matching_config_hash"] == ch
                 and not _needs_redo(last, engine)):
             continue
         todo.append((row, jh))
-    emit({"event": "scored", "done": len(rows) - len(todo), "total": len(rows), "newly_scored": 0})
+    if waiting:
+        emit({"event": "waiting", "count": waiting})
+    total = len(rows) - waiting   # jobs without a description are not part of the work
+    emit({"event": "scored", "done": total - len(todo), "total": total, "newly_scored": 0})
     if not todo or (cancelled and cancelled()):
         return 0
     engine.preload()  # resume files are read here, on this thread, once
@@ -181,7 +188,7 @@ def score_jobs(conn: sqlite3.Connection, engine: MatchEngine, profile: Profile, 
             if scored % 25 == 0:
                 conn.commit()
             emit({"event": "llm", "done": done, "total": len(todo)})
-            emit({"event": "scored", "done": len(rows) - len(todo) + done, "total": len(rows), "newly_scored": scored})
+            emit({"event": "scored", "done": total - len(todo) + done, "total": total, "newly_scored": scored})
             if cancelled and cancelled():
                 for f in futures:
                     f.cancel()

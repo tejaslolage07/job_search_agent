@@ -176,7 +176,7 @@ SELECT j.id, j.title, j.location, j.url, j.salary_text, j.posted_at, j.first_see
 FROM jobs j JOIN companies c ON c.id=j.company_id
 JOIN match_results m ON m.id=(SELECT MAX(id) FROM match_results WHERE job_id=j.id)
 LEFT JOIN user_job_state s ON s.job_id=j.id
-WHERE j.status='active'"""
+WHERE j.status='active' AND TRIM(COALESCE(j.description_text, '')) <> ''"""   # a job with no description is not judged yet, so it has no verdict to show
 
 
 def _record(r: sqlite3.Row, now: datetime) -> dict[str, Any]:

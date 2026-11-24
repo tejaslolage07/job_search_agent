@@ -79,11 +79,11 @@ def test_rescoring_triggers(conn, company, profile, mcfg):
     assert pipeline.score_jobs(conn, _engine(p2, mcfg, fake), p2, mcfg, rows, None) == 1
 
 
-def test_stored_phase1_result_has_null_resume_hash_and_no_stage1_scores(conn, company, profile, mcfg):
+def test_a_stored_match_was_confirmed_by_the_resume_and_has_no_stage1_scores(conn, company, profile, mcfg):
     rows = _insert(conn, company)
     pipeline.score_jobs(conn, _engine(profile, mcfg, FakeOpenAI()), profile, mcfg, rows, None)
     m = store.latest_match(conn, 1)
-    assert m["stage_decided"] == 1 and m["resume_hash"] is None and m["stage1_score"] is None and m["method"] == "llm-profile"
+    assert m["stage_decided"] == 2 and m["resume_hash"] == "deadbeef" and m["stage1_score"] is None and m["method"] == "llm-resume" and m["bucket"] == "accept"
     assert "inputs" in json.loads(m["reasons_json"])
 
 
@@ -114,3 +114,16 @@ def test_a_profile_without_preferred_locations_is_valid_and_tells_the_ai_any_loc
     assert "Preferred locations: none listed (no location preference: any location is acceptable)" in text
     assert "outside the preferred locations" not in text and "\n\n" not in text and text.endswith("USD to INR rate for converting dollar salaries: 88")
     assert p.matching_hash() != profile.matching_hash()
+
+
+def test_work_authorization_allows_only_indian_citizen_and_normalises_older_spellings(profile):
+    from pydantic import ValidationError
+
+    from job_search_agent.config import Profile
+    base = profile.model_dump()
+    for ok in ("Indian citizen", "India citizen", "indian citizen", " Indian Citizenship "):
+        assert Profile.model_validate({**base, "work_authorization": ok}).work_authorization == "Indian citizen"
+    for blank in (None, "", "  "):
+        assert Profile.model_validate({**base, "work_authorization": blank}).work_authorization is None
+    with pytest.raises(ValidationError, match="Indian citizen"):
+        Profile.model_validate({**base, "work_authorization": "H1B holder"})

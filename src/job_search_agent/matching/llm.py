@@ -1,6 +1,6 @@
 """The AI matcher (OpenAI). Two phases, both answering with one line and one word for the strongest parameter:
     phase 1  job + profile details  -> `match` / `no match` / `ambiguous`      (config/llm_prompt.md)
-    phase 2  job + resume           -> `match` / `no match`  (never ambiguous)   (config/llm_prompt_resume.md); only for phase-1 `ambiguous`
+    phase 2  job + resume           -> `match` / `no match`  (never ambiguous)   (config/llm_prompt_resume.md); for phase-1 `match` and `ambiguous` (a phase-1 `no match` is final)
 What is put into a prompt: the job (including its posted salary text), the profile details (Profile.details_text: skills, locations, titles and
 your current / expected pay; not notice period or work authorization) in phase 1, and the resume text in phase 2.
 The test kit (llm_test_kit/run_test.py) uses these same functions.

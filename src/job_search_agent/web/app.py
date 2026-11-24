@@ -96,7 +96,7 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
         try:
             counts = {r["bucket"]: r["n"] for r in conn.execute(
                 "SELECT m.bucket, COUNT(*) n FROM jobs j JOIN match_results m ON m.id=(SELECT MAX(id) FROM match_results WHERE job_id=j.id) "
-                "WHERE j.status='active' GROUP BY m.bucket")}
+                "WHERE j.status='active' AND TRIM(COALESCE(j.description_text, '')) <> '' GROUP BY m.bucket")}
             total = conn.execute("SELECT COUNT(*) FROM jobs WHERE status='active'").fetchone()[0]
             try:
                 cand = (service.read_profile(home) or {}).get("name")
@@ -154,7 +154,6 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
     def delete_resume(name: str) -> dict[str, Any]:
         if not service.delete_resume(home, name):
             raise HTTPException(404, "no such resume")
-        path.unlink()
         _refresh_profile_resumes()
         return {"resumes": service.list_resumes(home)}
 
@@ -219,7 +218,7 @@ def create_app(home_root: Path | str = ".", controller: RunController | None = N
     def add_company(c: CompanyIn) -> dict[str, bool]:
         if not _http_url(c.careers_url):
             raise HTTPException(422, "careers_url must start with http:// or https://")
-        if c.ats_type not in ("auto", "greenhouse", "lever", "ashby", "workday", "custom"):
+        if c.ats_type not in ("auto", "greenhouse", "lever", "ashby", "workday", "keka", "zoho", "oracle", "custom"):
             raise HTTPException(422, "unknown ats_type")
         service.upsert_company(home, {**c.model_dump(), "active": "true" if c.active else "false"})
         return {"saved": True}

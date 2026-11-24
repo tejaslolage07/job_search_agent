@@ -50,6 +50,7 @@ JOB_TYPE = {"full time": "F", "full-time": "F", "part time": "P", "part-time": "
 REMOTE = {"on-site": "1", "on site": "1", "remote": "2", "hybrid": "3"}
 EXPERIENCE = {"internship": "1", "entry level": "2", "associate": "3", "senior": "4", "director": "5", "executive": "6"}
 AUTH_WALL = re.compile(r"authwall|/login|checkpoint/challenge")
+LINKEDIN_RESULT_LIMIT = 1000  # LinkedIn serves only the first 1,000 results of a search: a request with start >= 1000 gets HTTP 400, whatever the filters
 MAX_BACKOFF_SECONDS = 64  # waits double 2, 4, 8 ... 64 s; a failure after the 64 s wait stops the run
 DEFAULT_QUERIES = [{"keyword": k, "location": loc} for k, loc in [
     ("software engineer", "India"), ("backend engineer", "India"), ("python developer", "India"), ("AI engineer", "India"),
@@ -325,7 +326,10 @@ class LinkedInCollector:
                             save()
                             continue
                         k = min(workers, max(1, math.ceil((share - found) / st["pageSize"])))
-                        offsets = [st["offset"] + j * st["pageSize"] for j in range(k)]
+                        offsets = [o for o in (st["offset"] + j * st["pageSize"] for j in range(k)) if o < LINKEDIN_RESULT_LIMIT]
+                        if not offsets:   # LinkedIn would answer 400 from offset 1,000 on: this search has given everything it can
+                            st["exhausted"], st["hitLimit"] = True, True
+                            break
                         pages = await asyncio.gather(*(fetch_page(q, o) for o in offsets))
                         if any(p is None for p in pages):
                             return
@@ -343,7 +347,7 @@ class LinkedInCollector:
                         save()
                     if self._aborted is None:
                         emit({"stage": "search_done", "keyword": q.get("keyword"), "location": q.get("location"), "found": found,
-                              "reason": "no_more_results" if st["exhausted"] else "share_reached", "unique": len(cards)})
+                              "reason": "linkedin_limit" if st.get("hitLimit") else "no_more_results" if st["exhausted"] else "share_reached", "unique": len(cards)})
 
                 for i in range(len(queries)):
                     if self._aborted is not None or len(cards) >= max_listings:

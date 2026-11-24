@@ -65,7 +65,7 @@
   <path d="M10 112H890" stroke="#8a93a6" stroke-dasharray="4 4" fill="none"/>
   <rect class="b" x="540" y="140" width="150" height="56" rx="8"/><text x="615" y="164" text-anchor="middle">jobs (active)</text><text class="sm" x="615" y="182" text-anchor="middle">+ profile + matching.yaml</text>
   <rect class="nl" x="370" y="140" width="130" height="56" rx="8"/><text x="435" y="164" text-anchor="middle">Phase 1 (AI)</text><text class="sm" x="435" y="182" text-anchor="middle">job + profile details</text>
-  <rect class="nl" x="180" y="140" width="150" height="56" rx="8"/><text x="255" y="164" text-anchor="middle">Phase 2 (AI)</text><text class="sm" x="255" y="182" text-anchor="middle">ambiguous only: resume</text>
+  <rect class="nl" x="180" y="140" width="150" height="56" rx="8"/><text x="255" y="164" text-anchor="middle">Phase 2 (AI)</text><text class="sm" x="255" y="182" text-anchor="middle">every non-reject: resume</text>
   <rect class="b" x="10" y="140" width="130" height="56" rx="8"/><text x="75" y="164" text-anchor="middle">Ranked list</text><text class="sm" x="75" y="182" text-anchor="middle">newest day first</text>
   <path class="a" d="M615 76V138" style="display:none"/>
   <path class="a" d="M540 168H502"/><path class="a" d="M370 168H332"/><path class="a" d="M180 168H142"/>
@@ -136,30 +136,30 @@ Ashby       GET api.ashbyhq.com/posting-api/job-board/{token}?includeCompensatio
 <p><strong>Idempotency:</strong> with no site changes, a second run reports zero new, changed, and removed jobs. <code>--dry-run</code> fetches and diffs and prints the result, but writes no jobs, events, or runs (it still syncs the <code>companies</code> table from the CSV).</p>
 
 <h2 id="matching">7. Matching: two AI phases (no rules)</h2>
-<svg viewBox="0 0 900 220" role="img" aria-label="Matching flow: phase 1 asks the AI about the job and the profile details; only ambiguous jobs go to phase 2, which asks about the job and the resume and must answer match or no match">
+<svg viewBox="0 0 900 220" role="img" aria-label="Matching flow: phase 1 asks the AI about the job and the profile details; a no match is final, while a match or an ambiguous goes to phase 2, which asks about the job and the resume, has the last word, and must answer match or no match">
   <rect class="b" x="10" y="80" width="110" height="56" rx="8"/><text x="65" y="105" text-anchor="middle">Stored job</text><text class="sm" x="65" y="122" text-anchor="middle">+ profile details</text>
   <rect class="nl" x="170" y="80" width="150" height="56" rx="8"/><text x="245" y="105" text-anchor="middle">Phase 1 (AI)</text><text class="sm" x="245" y="122" text-anchor="middle">no resume</text>
   <path class="a" d="M120 108H168"/>
-  <rect class="b" x="400" y="10" width="200" height="50" rx="8"/><text x="500" y="32" text-anchor="middle">MATCH → accept</text><text class="sm" x="500" y="48" text-anchor="middle">resume_hash = NULL</text>
-  <rect class="b" x="400" y="80" width="200" height="50" rx="8"/><text x="500" y="102" text-anchor="middle">NO MATCH → reject</text><text class="sm" x="500" y="118" text-anchor="middle">resume_hash = NULL</text>
-  <rect class="hl" x="400" y="150" width="200" height="50" rx="8"/><text x="500" y="172" text-anchor="middle">AMBIGUOUS</text>
+  <rect class="b" x="400" y="10" width="200" height="50" rx="8"/><text x="500" y="32" text-anchor="middle">MATCH → resume check</text><text class="sm" x="500" y="48" text-anchor="middle">phase 2 confirms or overturns</text>
+  <rect class="b" x="400" y="80" width="200" height="50" rx="8"/><text x="500" y="102" text-anchor="middle">NO MATCH → reject (final)</text><text class="sm" x="500" y="118" text-anchor="middle">resume_hash = NULL</text>
+  <rect class="hl" x="400" y="150" width="200" height="50" rx="8"/><text x="500" y="172" text-anchor="middle">AMBIGUOUS → resume check</text>
   <path class="a" d="M320 95L398 40"/><path class="a" d="M320 108H398"/><path class="a" d="M320 121L398 170"/>
   <rect class="nl" x="660" y="140" width="220" height="70" rx="8"/><text x="770" y="163" text-anchor="middle">Phase 2 (AI + resume)</text><text class="sm" x="770" y="181" text-anchor="middle">match or no match only</text><text class="sm" x="770" y="197" text-anchor="middle">resume_hash = file hash</text>
-  <path class="a" d="M600 175H658"/>
+  <path class="a" d="M600 175H658"/><path class="a" d="M600 35H770V138"/>
 </svg>
 
 <h3>Phase 1: job + profile details</h3>
 <p>Prompt: <code>config/llm_prompt.md</code>. The model gets the job (title, company, location, description) and the <strong>profile details</strong> built by <code>Profile.details_text()</code>: years of experience, target titles, seniority range, max years the job may ask for, preferred locations and hybrid / onsite rules, must-have and nice-to-have skills, dealbreaker words, companies to avoid, and <strong>your current and expected CTC with the USD rate</strong>. The job's <strong>posted pay</strong> is sent as its own field, so the model can reject jobs whose pay is clearly below your expected minimum (pay that is not stated is neutral). It answers one line: <code>match: &lt;word&gt;</code>, <code>no match: &lt;word&gt;</code> or <code>ambiguous</code>, where the word is the strongest parameter behind the verdict.</p>
 
-<h3>Phase 2: job + resume, only when phase 1 says ambiguous</h3>
+<h3>Phase 2: job + resume, when phase 1 says match or ambiguous</h3>
 <ul>
-  <li>Prompt: <code>config/llm_prompt_resume.md</code>. The resume goes in place of the profile details. <strong>Ambiguous is not allowed</strong>: the prompt forbids it and the reply parser rejects it, so a phase-2 job ends as <code>match</code> or <code>no match</code> (an off-spec or ambiguous reply is a failed check that is retried next run, never a result).</li>
+  <li>Prompt: <code>config/llm_prompt_resume.md</code>. A phase-1 <code>no match</code> is final; every <code>match</code> or <code>ambiguous</code> goes here and phase 2 has the last word, because the profile cannot show what the resume lacks (on 38 real phase-1 matches, the resume check overturned 25). The resume goes in place of the profile details. <strong>Ambiguous is not allowed</strong>: the prompt forbids it and the reply parser rejects it, so a phase-2 job ends as <code>match</code> or <code>no match</code> (an off-spec or ambiguous reply is a failed check that is retried next run, never a result).</li>
   <li>Resume PDFs are parsed with pypdf, cached by file hash, and only sent in phase 2. With several resume variants, one <code>match</code> is enough; all must say <code>no match</code> to reject.</li>
   <li>If the key is missing, the API fails, the reply is off-spec or the resume cannot be read, the job stays in <code>review</code> (shown as "Not checked") with method <code>llm-failed</code> and is asked again on the next run. There is no non-AI fallback.</li>
 </ul>
 <div class="box"><p><strong>What is sent:</strong> the job text and posted pay, the profile details above (pay included) in phase 1, and the resume text in phase 2. Notice period, work authorization and resume file paths are never sent. Model, effort, retries, concurrency, caching: the <code>llm:</code> section of <code>config/matching.yaml</code> (<code>OPENAI_MODEL</code> in <code>.env</code> overrides the model).</p></div>
 <div class="box"><p><strong>Cost design:</strong> reasoning effort is <code>none</code> for phase 1 (quick triage, about 6 output tokens per call) and <code>low</code> for phase 2 (<code>resume_reasoning_effort</code>, the careful resume check). With <code>cache: explicit</code> only the shared start of each prompt (instructions + profile in phase 1, instructions + resume in phase 2, ended by the <code>{{cache_here}}</code> line of the prompt file) is cached and read back at about a tenth of the input price; the per-job text after it is billed as plain input. The shared start must reach about 1,024 tokens or nothing is cached, which is why the phase-1 prompt carries worked examples. Every API call is stored in the <code>llm_calls</code> table (full request and response, input / output / reasoning / cached / cache-write tokens).</p></div>
-<div class="box"><p><strong>Audit proof:</strong> <code>match_results.resume_hash</code> is NULL whenever phase 2 did not run. If it is set, the resume was sent; if it is NULL, it was not. <code>explain JOB_ID</code> shows each call's verdict, word, model and token counts.</p></div>
+<div class="box"><p><strong>Audit proof:</strong> <code>match_results.resume_hash</code> is NULL whenever phase 2 did not run (a phase-1 <code>no match</code>). If it is set, the resume was sent; if it is NULL, it was not. <code>explain JOB_ID</code> shows each call's verdict, word, model and token counts.</p></div>
 
 <h3>Scores and buckets</h3>
 <table>

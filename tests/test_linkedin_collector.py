@@ -43,6 +43,7 @@ class FakeLinkedIn:
         self.delay, self.log, self.inflight, self.max_inflight = delay, [], 0, 0
         self.fail: dict[str, list[int]] = {}   # url-substring -> status codes to return first (then normal)
         self.detail_status: dict[str, int] = {}
+        self.cap: dict[str, int] = {}          # keyword -> first `start` that gets HTTP 400 (default 1000, the real LinkedIn limit)
         self.times: list[tuple[str, float]] = []
 
     async def handler(self, request: httpx.Request) -> httpx.Response:
@@ -60,6 +61,8 @@ class FakeLinkedIn:
                 return httpx.Response(200, text="login")
             if "seeMoreJobPostings" in url:
                 kw, start = request.url.params["keywords"], int(request.url.params["start"])
+                if start >= self.cap.get(kw, 1000):
+                    return httpx.Response(400, text="Bad Request")
                 size = 6 if kw == "GAP" and start % 20 == 10 else 10
                 n = max(0, min(size, self.TOTAL[kw] - start))
                 return httpx.Response(200, text="<ul>" + "".join(card_html(kw, start + i) for i in range(n)) + "</ul>")
@@ -351,3 +354,41 @@ def test_one_worker_is_not_slowed_by_the_gate(tmp_path):
 def test_gate_is_off_when_there_is_no_pause(tmp_path):
     c = LinkedInCollector(transport=httpx.MockTransport(FakeLinkedIn().handler), pace=(0, 0), backoff_unit=0)
     assert c._start_gap(8) == 0
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# LinkedIn serves only the first 1,000 results of a search (HTTP 400 from start=1000 on): the collector never asks for an offset that high
+# ---------------------------------------------------------------------------------------------------------------------
+def starts(fake: FakeLinkedIn, kw: str) -> list[int]:
+    return sorted(int(httpx.URL(u).params["start"]) for u in fake.log if "seeMoreJobPostings" in u and httpx.URL(u).params["keywords"] == kw)
+
+
+def test_a_search_stops_at_linkedins_1000_result_limit_without_backing_off_and_the_other_searches_still_run(tmp_path):
+    fake = FakeLinkedIn()
+    c = collector(fake)
+    code, summary, events = run(c, cfg(tmp_path, ["A", "C"], 5000, workers=4))
+    assert code == 0 and summary["blocked"] is None and c.errors == 0                  # no backoff, no "blocked"
+    assert max(starts(fake, "A")) <= 990                                                 # offset 1,000 was never requested
+    done = {e["keyword"]: e for e in events if e.get("stage") == "search_done"}
+    assert done["A"]["reason"] == "linkedin_limit" and done["A"]["found"] == 1000
+    assert done["C"]["found"] == 5                                                       # the next search ran after the limited one
+    assert len(cards_of(tmp_path)) == 1005
+    assert any(u for u in fake.log if "jobPosting" in u)                                 # and the descriptions step was reached
+
+
+def test_a_400_is_not_treated_as_the_end_of_a_search_it_is_an_error_like_any_other(tmp_path):
+    fake = FakeLinkedIn()
+    fake.fail = {"keywords=A": [400] * 12}                                               # LinkedIn keeps refusing with a 400
+    c = collector(fake)
+    code, summary, events = run(c, cfg(tmp_path, ["A", "C"], 50, workers=1))
+    assert code == 2 and "HTTP 400" in summary["blocked"] and c.errors == 7              # retried with the usual backoff (2..64 s), then the run stops
+    assert not [e for e in events if e.get("stage") == "search_done"]                    # the search was not declared finished
+    assert "C" not in fake.search_keywords()                                             # and the later searches did not run
+
+
+def test_a_real_rate_limit_is_still_backed_off_and_other_errors_still_count_as_errors(tmp_path):
+    fake = FakeLinkedIn()
+    fake.fail = {"keywords=A": [429, 429]}
+    c = collector(fake)
+    code, summary, _ = run(c, cfg(tmp_path, ["A"], 20, workers=1))
+    assert code == 0 and c.errors == 2                                                   # two 429s were waited out and retried, as before

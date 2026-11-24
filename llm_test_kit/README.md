@@ -1,7 +1,7 @@
 # AI matcher test kit (OpenAI)
 
 Run the **real two-phase matcher** on your **own collected jobs** and see every verdict and one-word reason: phase 1 (job + profile details) answers `match` / `no match` / `ambiguous`; only
-`ambiguous` jobs go to phase 2 (job + resume), which answers `match` / `no match`. Nothing in the main app's database is changed by running it.
+jobs it answers `match` or `ambiguous` go to phase 2 (job + resume), which answers `match` / `no match` and has the last word; a phase-1 `no match` is final. Nothing in the main app's database is changed by running it.
 
 ## Setup (once)
 
@@ -34,7 +34,7 @@ For every job, as soon as it finishes:
 
 ```
 [3/8] #4821  Acme - Backend Engineer  (Bengaluru)
-      6.9s | MATCH - strongest parameter: python  [profile said ambiguous -> resume]   |   stored result: match
+      6.9s | MATCH - strongest parameter: python  [profile said match -> resume]   |   stored result: match
 ```
 
 then a table of all jobs (phase-1 answer, final answer, which phase decided) and a summary: final verdict counts, how phase 1 answered and how many jobs went on to the resume check, **which parameters were named most often**, time and jobs per minute,

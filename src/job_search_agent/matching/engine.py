@@ -1,6 +1,7 @@
-"""The matcher: phase 1 asks the AI about the job and the profile details; only an `ambiguous` answer goes on to phase 2, which asks about the
-job and the resume and may only answer match or no match. match -> accept, no match -> reject. If the AI cannot answer (no resume, API
-error, off-spec reply) the job is left in `review` with method `llm-failed` and is tried again on the next run.
+"""The matcher: phase 1 asks the AI about the job and the profile details. A `no match` is final. A `match` or an `ambiguous` goes on to phase 2, which
+asks about the job and the resume and may only answer match or no match: phase 2 always has the last word, so nothing is accepted on the profile alone
+(the profile cannot show what the resume lacks). match -> accept, no match -> reject. If the AI cannot answer (no resume, API error, off-spec reply)
+the job is left in `review` with method `llm-failed` and is tried again on the next run.
 
 `preload()` reads the resume files (database access) and must be called from the main thread before `score` is used from several threads;
 `score` itself only talks to the API.
@@ -71,12 +72,13 @@ class MatchEngine:
             return self._failed(1, _err(exc), calls, records)
         calls.append({"phase": 1, **_call_info(p1)})
         records.append(_record(1, None, p1.record))
-        if p1.verdict != "ambiguous":
+        if p1.verdict == "no match":   # a rejection on the profile is final; a match or an unclear job is checked against the resume
             return self._outcome(1, p1.verdict, calls, [Reason("llm_profile", EFFECT[VERDICT_TO_BUCKET[p1.verdict]], self._detail(p1, "profile check"))], records)
 
         if not self._variants:
             return self._failed(2, f"resume could not be read ({self.resume_error or 'preload() was not called'})", calls, records)
-        reasons = [Reason("llm_profile", "neutral", "profile check: AI judged 'ambiguous'; resume compared next")]
+        reasons = [Reason("llm_profile", "plus" if p1.verdict == "match" else "neutral",
+                          self._detail(p1, "profile check") + ("; resume compared next to confirm" if p1.verdict == "match" else "; resume compared next"))]
         last: Judgement | None = None
         for v in self._variants:  # several resume variants: any one that matches is enough
             try:

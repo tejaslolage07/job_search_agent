@@ -156,16 +156,22 @@ def test_the_llm_section_does_not_feed_the_config_hash(mcfg):
 JOB = dict(title="Backend Engineer", desc="Python Django FastAPI role. 2+ years of experience.")
 
 
-def test_phase1_match_and_no_match_never_touch_the_resume(profile, mcfg):
+def test_a_phase1_no_match_is_final_and_never_touches_the_resume(profile, mcfg):
     judge, fake = make_judge(profile, mcfg)
-    lib = FakeLibrary()
-    eng = engine(profile, mcfg, judge, lib)
-    yes = eng.score(ji(**JOB))
-    no = eng.score(ji(title="Backend Engineer", desc="VERDICT_NO Java only."))
-    assert (yes.bucket, yes.phase, yes.method, yes.final_score, yes.resume_hash) == ("accept", 1, "llm-profile", 100.0, None)
-    assert (no.bucket, no.phase, no.method, no.final_score) == ("reject", 1, "llm-profile", 0.0)
-    assert [r["phase"] for r in fake.requests] == [1, 1]
+    out = engine(profile, mcfg, judge).score(ji(title="Backend Engineer", desc="VERDICT_NO Java only."))
+    assert (out.bucket, out.phase, out.method, out.final_score, out.resume_hash) == ("reject", 1, "llm-profile", 0.0, None)
+    assert [r["phase"] for r in fake.requests] == [1]
     assert all("RESUME:" not in r["body"]["messages"][1]["content"] for r in fake.requests)   # the resume was not even in the prompt
+
+
+@pytest.mark.parametrize("marker,bucket,verdict", [("", "accept", "match"), ("P2_NO", "reject", "no match")])
+def test_a_phase1_match_is_confirmed_by_the_resume_and_phase2_has_the_last_word(profile, mcfg, marker, bucket, verdict):
+    judge, fake = make_judge(profile, mcfg)
+    out = engine(profile, mcfg, judge).score(ji(title="Backend Engineer", desc=f"{marker} Python Django FastAPI role."))
+    assert (out.bucket, out.phase, out.method, out.resume_hash) == (bucket, 2, "llm-resume", "deadbeef")
+    assert [r["phase"] for r in fake.requests] == [1, 2]
+    assert [c["verdict"] for c in out.inputs["llm"]["calls"]] == ["match", verdict]               # phase 1 said match in both cases
+    assert "resume compared next to confirm" in out.reasons[0].detail and out.reasons[0].effect == "plus"
 
 
 @pytest.mark.parametrize("marker,bucket,verdict", [("PHASE1_AMB", "accept", "match"), ("PHASE1_AMB P2_NO", "reject", "no match")])
@@ -215,15 +221,16 @@ def test_when_phase1_fails_the_job_is_unscored_and_says_why(profile, mcfg, marke
     assert fragment in out.inputs["llm"]["error"] and any(r.rule == "llm_failed" and fragment in r.detail for r in out.reasons)
 
 
-def test_when_the_resume_cannot_be_read_only_the_ambiguous_jobs_fail(profile, mcfg):
+def test_when_the_resume_cannot_be_read_every_job_that_needs_it_fails_but_a_phase1_no_match_stays_final(profile, mcfg):
     from job_search_agent.matching.resumes import ResumeLibrary
 
     judge, _ = make_judge(profile, mcfg)
     eng = MatchEngine(profile, mcfg, ResumeLibrary({"backend": "/nonexistent.pdf"}), judge)
     assert eng.preload() and "not found" in eng.resume_error
-    assert eng.score(ji(**JOB)).bucket == "accept"                                           # phase 1 needs no resume
-    out = eng.score(ji(title="Data Analyst", desc="PHASE1_AMB analytics"))
-    assert out.method == "llm-failed" and "resume could not be read" in out.inputs["llm"]["error"] and out.resume_hash is None
+    assert eng.score(ji(title="Backend Engineer", desc="VERDICT_NO Java only.")).bucket == "reject"      # a rejection needs no resume
+    for desc in ("PHASE1_AMB analytics", "Python Django FastAPI role."):                                 # unclear AND matching jobs both need the resume check
+        out = eng.score(ji(title="Data Analyst", desc=desc))
+        assert out.method == "llm-failed" and "resume could not be read" in out.inputs["llm"]["error"] and out.resume_hash is None
 
 
 def test_phase1_sends_job_posted_pay_and_profile_pay_and_phase2_sends_the_resume_but_never_notice_period_or_work_authorization(profile, mcfg):
@@ -233,7 +240,7 @@ def test_phase1_sends_job_posted_pay_and_profile_pay_and_phase2_sends_the_resume
     for i in range(4):
         eng.score(ji(title=f"Data Analyst {i}", salary="$120,000 - $150,000", desc=f"PHASE1_AMB Job {i}: Python analytics work in Bengaluru. 2+ years of experience."))
     eng.score(ji(**JOB))
-    assert [r["phase"] for r in fake.requests] == [1, 2] * 4 + [1]
+    assert [r["phase"] for r in fake.requests] == [1, 2] * 5
     system1, _ = L.load_prompt(PROMPT)
     system2, _ = L.load_prompt(PROMPT2)
     for req in fake.requests:
@@ -273,8 +280,8 @@ def test_jobs_are_judged_in_parallel_up_to_the_configured_concurrency_and_saved(
     judge, fake = make_judge(profile, mcfg, FakeOpenAI(delay=0.25), concurrency=3)
     events: list[dict] = []
     n = pipeline.score_jobs(conn, MatchEngine(profile, mcfg, FakeLibrary(), judge), profile, mcfg, rows, None, on_progress=events.append)
-    assert n == 8 and fake.peak() == 3 and len(fake.requests) == 8 + 6             # every job asked in phase 1; the 6 ambiguous ones again in phase 2
-    assert methods(conn) == {"llm-resume": 6, "llm-profile": 2}
+    assert n == 8 and fake.peak() == 3 and len(fake.requests) == 8 + 8             # every job asked in phase 1; the 6 ambiguous and the 2 matching ones again in phase 2
+    assert methods(conn) == {"llm-resume": 8}
     llm_events = [e for e in events if e["event"] == "llm"]
     assert llm_events[0] == {"event": "llm", "done": 0, "total": 8} and llm_events[-1] == {"event": "llm", "done": 8, "total": 8}
     saved = json.loads(conn.execute("SELECT reasons_json FROM match_results WHERE method='llm-resume' LIMIT 1").fetchone()[0])
@@ -289,7 +296,7 @@ def test_results_stay_cached_until_the_prompt_or_model_changes(conn, company, pr
     before = len(fake.requests)
     assert run(judge) == 0 and len(fake.requests) == before                      # nothing changed: nothing re-judged
     stricter, fake2 = make_judge(profile, mcfg, system=judge.phase1[0] + " Be strict.")
-    assert run(stricter) == 5 and len(fake2.requests) == 5 + 3                   # a new prompt: everything is asked again
+    assert run(stricter) == 5 and len(fake2.requests) == 5 + 5                   # a new prompt: everything is asked again (phase 1 and phase 2 for each)
     assert run(stricter) == 0
 
 
@@ -306,7 +313,7 @@ def test_failed_ai_calls_are_retried_on_the_next_run_and_only_those(conn, compan
     judge, fake = make_judge(profile, mcfg)
     eng = lambda: MatchEngine(profile, mcfg, FakeLibrary(), judge)  # noqa: E731
     assert pipeline.score_jobs(conn, eng(), profile, mcfg, rows, None) == 7
-    assert methods(conn) == {"llm-resume": 3, "llm-failed": 2, "llm-profile": 2}
+    assert methods(conn) == {"llm-resume": 5, "llm-failed": 2}
     fake.requests.clear()
     assert pipeline.score_jobs(conn, eng(), profile, mcfg, rows, None) == 2 and len(fake.requests) == 2   # only the failed ones are asked again (and fail again)
     assert methods(conn)["llm-failed"] == 4                                                              # history is kept; the latest result per job is what counts
@@ -319,7 +326,7 @@ def test_a_cancelled_run_keeps_finished_results_and_the_rest_are_done_next_time(
     first = pipeline.score_jobs(conn, eng(), profile, mcfg, rows, None, cancelled=lambda: len(fake.requests) >= 3)
     assert 1 <= first < 8
     assert pipeline.score_jobs(conn, eng(), profile, mcfg, rows, None) == 8 - first          # exactly the unfinished ones
-    assert methods(conn) == {"llm-profile": 8}
+    assert methods(conn) == {"llm-resume": 8}
 
 
 # ------------------------------------------------------------------------- every call is stored in full (llm_calls) -----------------------------
@@ -331,9 +338,9 @@ def test_every_call_is_saved_with_its_entire_request_and_response_and_token_coun
     rows = add_jobs(conn, company, n_ambiguous=1, n_clear=1)
     judge, fake = make_judge(profile, mcfg)
     pipeline.score_jobs(conn, MatchEngine(profile, mcfg, FakeLibrary("Python Django developer. I built OCR pipelines."), judge), profile, mcfg, rows, None)
-    assert conn.execute("SELECT COUNT(*) FROM llm_calls").fetchone()[0] == len(fake.requests) == 3                  # 1 clear job (phase 1) + 1 ambiguous (phases 1 and 2)
+    assert conn.execute("SELECT COUNT(*) FROM llm_calls").fetchone()[0] == len(fake.requests) == 4                  # both jobs go through phase 1 and phase 2 (a match is confirmed by the resume)
     clear = calls_for(conn, "Backend Engineer")
-    assert len(clear) == 1
+    assert [(a["phase"], a["status"]) for a in clear] == [(1, "ok"), (2, "ok")]
     c = clear[0]
     assert (c["phase"], c["status"], c["error"], c["tokens_in"], c["tokens_out"], c["reasoning_tokens"], c["retries"], c["model"]) == (1, "ok", None, 1000, 12, 5, 0, "gpt-test")
     req, resp = json.loads(c["request_json"]), json.loads(c["response_json"])
@@ -347,7 +354,7 @@ def test_every_call_is_saved_with_its_entire_request_and_response_and_token_coun
     assert "I built OCR pipelines" in amb[1]["request_json"]
     m = conn.execute("SELECT id FROM match_results ORDER BY id").fetchall()
     assert {r["match_id"] for r in amb} <= {x["id"] for x in m} and len({r["match_id"] for r in amb}) == 1          # linked to the result they produced
-    assert sum(r["tokens_in"] for r in conn.execute("SELECT * FROM llm_calls")) == 3000
+    assert sum(r["tokens_in"] for r in conn.execute("SELECT * FROM llm_calls")) == 4000
 
 
 def test_failed_calls_are_saved_too_with_the_error_and_whatever_came_back(conn, company, profile, mcfg):
@@ -474,3 +481,25 @@ def test_a_normal_resume_is_never_cut_the_ceiling_is_only_a_safety_net_and_null_
     judge3, fake3 = make_judge(profile, unlimited)
     judge3.judge_resume("T", "C", "L", "Python", "X" * 200000 + "THE-END")
     assert "THE-END" in json.dumps(fake3.requests[0]["raw_body"])                         # null: no limit at all
+
+
+# ------------------------------------------------------------------------- jobs without a description are not judged -------------------------
+def test_jobs_without_a_description_are_not_judged_until_the_text_arrives(conn, company, profile, mcfg):
+    jobs = [RawJob(external_id="e", url="https://x/e", title="Backend Engineer", location="Bengaluru", description_text=""),
+            RawJob(external_id="n", url="https://x/n", title="Backend Engineer 2", location="Bengaluru", description_text=None),
+            RawJob(external_id="w", url="https://x/w", title="Backend Engineer 3", location="Bengaluru", description_text="   \n ")]
+    diff.apply_plan(conn, store.start_run(conn), company.id, diff.compute_plan({}, jobs))
+    rows = add_jobs(conn, company, n_ambiguous=0, n_clear=1)                            # one job that does have a description
+    judge, fake = make_judge(profile, mcfg)
+    events: list[dict] = []
+    n = pipeline.score_jobs(conn, MatchEngine(profile, mcfg, FakeLibrary(), judge), profile, mcfg, rows, None, on_progress=events.append)
+    assert n == 1 and [r["phase"] for r in fake.requests] == [1, 2]                      # only the described job was judged (phase 1 and the resume check)
+    assert {e["count"] for e in events if e["event"] == "waiting"} == {3}
+    scored = [e for e in events if e["event"] == "scored"]
+    assert scored[0]["total"] == 1 and scored[-1]["done"] == 1                           # the waiting jobs are not part of the work being counted
+    assert conn.execute("SELECT COUNT(*) FROM match_results").fetchone()[0] == 1
+    # the text arrives (a LinkedIn description fetched later): the job is now judged
+    conn.execute("UPDATE jobs SET description_text='Python Django role', description_hash='newhash' WHERE external_id='e'")
+    rows = conn.execute("SELECT j.*, c.name AS company_name, c.tier FROM jobs j JOIN companies c ON c.id=j.company_id").fetchall()
+    fake.requests.clear()
+    assert pipeline.score_jobs(conn, MatchEngine(profile, mcfg, FakeLibrary(), judge), profile, mcfg, rows, None) == 1 and len(fake.requests) == 2

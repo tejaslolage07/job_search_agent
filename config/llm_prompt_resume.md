@@ -1,6 +1,6 @@
 # Prompt for phase 2 of the matcher (job + resume)
 
-Used only for jobs phase 1 (config/llm_prompt.md) answered `ambiguous`. The resume is sent in place of the profile details.
+Used for every job phase 1 (config/llm_prompt.md) answered `match` or `ambiguous` (a phase-1 `no match` is final and never reaches this prompt). The resume is sent in place of the profile details.
 Placeholders (filled per job): {{job_title}} {{company}} {{location}} {{job_description}} {{resume}}
 
 Reply format: `match: django` or `no match: golang` (the word is the strongest parameter). There is NO ambiguous option here: an `ambiguous` reply is rejected and the job is retried next run.

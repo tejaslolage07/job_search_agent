@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Test kit for the AI matcher: run the REAL two-phase matcher on YOUR collected jobs and show every verdict (with a one-word reason).
 
-    phase 1: job + profile details -> match / no match / ambiguous       phase 2 (only if ambiguous): job + resume -> match / no match
+    phase 1: job + profile details -> match / no match / ambiguous       phase 2 (if phase 1 said match or ambiguous): job + resume -> match / no match
 
     .venv/bin/python llm_test_kit/run_test.py                 # 8 jobs, 8 at a time
     .venv/bin/python llm_test_kit/run_test.py --dry-run       # build the prompts, call nothing (no key needed)
@@ -205,7 +205,7 @@ def show_result(i: int, n: int, r: Result, lock: threading.Lock) -> None:
             print(f"{head}\n         FAILED after {r.seconds:.1f}s: {r.error}\n", flush=True)
             return
         note = "" if r.clean else "   (a reply needed cleanup)"
-        how = "profile details" if r.phase == 1 else "profile said ambiguous -> resume"
+        how = "profile details" if r.phase == 1 else f"profile said {r.phase1} -> resume"
         why = f" - strongest parameter: {r.reason}" if r.reason else ""
         print(f"{head}\n         {r.seconds:.1f}s | {r.verdict.upper()}{why}  [{how}]{note}   |   stored result: {stored(j)}\n", flush=True)
 
@@ -365,7 +365,7 @@ def run(args: argparse.Namespace) -> int:
     prompts: dict[int, str] = {}
     for j in jobs:
         p1 = judge.profile_prompt(j["title"], j["company"], j["location"] or "", j["description_text"], j["salary_text"] or "")
-        p2 = "\n\n".join(f"##### PHASE 2 (only if phase 1 says ambiguous), resume variant {name}\n{judge.resume_prompt(j['title'], j['company'], j['location'] or '', j['description_text'], v.text)}"
+        p2 = "\n\n".join(f"##### PHASE 2 (if phase 1 says match or ambiguous), resume variant {name}\n{judge.resume_prompt(j['title'], j['company'], j['location'] or '', j['description_text'], v.text)}"
                           for name, v in resumes.items())
         prompts[j["id"]] = (f"##### PHASE 1 SYSTEM PROMPT\n{phase1[0]}\n\n##### PHASE 1 USER PROMPT\n{p1}\n\n##### PHASE 2 SYSTEM PROMPT\n{phase2[0]}\n\n{p2}\n")
 
